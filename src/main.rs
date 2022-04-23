@@ -1,5 +1,8 @@
 mod autodiff;
+mod ff_network;
+mod mnist;
+mod activations;
 
 fn main() {
-    println!("Hello, world!");
+    mnist::train();
 }
