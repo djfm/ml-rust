@@ -4,7 +4,8 @@ use std::io::Read;
 use std::io::Seek;
 
 use super::ff_network::{
-    FFNetwork,
+    Network,
+    Example,
 };
 
 
@@ -20,6 +21,18 @@ use super::activations::{
 pub struct Image {
     pub pixels: Vec<u8>,
     pub label: u8,
+}
+
+impl Example for Image {
+    fn get_input(&self) -> Vec<f32> {
+        self.pixels.iter().map(|&x| x as f32 / 255.0).collect()
+    }
+
+    fn get_one_hot_label(&self) -> Vec<f32> {
+        let mut label = vec![0.0; 10];
+        label[self.label as usize] = 1.0;
+        label
+    }
 }
 
 macro_rules! read_bytes {
@@ -148,7 +161,7 @@ pub fn load_testing_set() -> Result<Vec<Image>, String> {
 }
 
 pub fn train() {
-    let mut network = FFNetwork::new();
+    let mut network = Network::new();
 
     network
         .add_layer(
@@ -167,4 +180,11 @@ pub fn train() {
             LayerActivation::SoftMax,
         )
     ;
+
+    let training = load_testing_set().unwrap();
+
+    for image in training.iter() {
+        println!("training {}", image.label);
+        network.feed_forward(image);
+    }
 }
