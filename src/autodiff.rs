@@ -111,10 +111,36 @@ impl AutoDiff {
   pub fn add(&mut self, values: &Vec<ADValue>) -> ADValue {
     let id = self.tape.len();
 
-    let mut partials = values.iter().map(|value| {
+    let partials = values.iter().filter(|v| v.is_variable()).map(|value| {
       PartialDiff {
         with_respect_to_id: value.id.unwrap(),
         value: 1.0,
+      }
+    }).collect();
+
+    self.tape.records.push(TapeRecord {
+      partials,
+    });
+
+    ADValue {
+      id: Some(id),
+      value: values.iter().map(|value| value.value).sum(),
+    }
+  }
+
+  pub fn mul(&mut self, values: &Vec<ADValue>) -> ADValue {
+    let id = self.tape.len();
+
+    let partials = values.iter().filter(|v| v.is_variable()).enumerate().map(|(i, value)| {
+      PartialDiff {
+        with_respect_to_id: value.id.unwrap(),
+        value: values.iter().enumerate().map(|(j, value)| {
+          if i == j {
+            1.0
+          } else {
+            value.value
+          }
+        }).product(),
       }
     }).collect();
 
@@ -143,5 +169,14 @@ mod tests {
 
     let dy_dx = ad.diff(&y, &x);
     assert_eq!(dy_dx, 2.0);
+  }
+
+  #[test]
+  fn test_dx2_dx() {
+    let mut ad = AutoDiff::new();
+    let x = ad.create_variable(2.0);
+    let y = ad.mul(&vec![x, x]);
+    let dy_dx = ad.diff(&y, &x);
+    assert_eq!(dy_dx, 4.0);
   }
 }
