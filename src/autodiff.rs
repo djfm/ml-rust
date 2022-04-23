@@ -65,7 +65,7 @@ impl AutoDiff {
     }
   }
 
-  fn compute_gradient(&mut self, y: &ADValue) {
+  fn compute_gradient(&mut self, y: ADValue) {
     let mut dy = vec![0.0; y.id + 1];
 
     dy[y.id] = 1.0;
@@ -78,7 +78,7 @@ impl AutoDiff {
     self.gradients.insert(y.id, dy);
   }
 
-  pub fn diff(&mut self, y: &ADValue, wrt: &ADValue) -> f32 {
+  pub fn diff(&mut self, y: ADValue, wrt: ADValue) -> f32 {
     match self.gradients.get(&y.id) {
       Some(dy) => dy[wrt.id],
       None => {
@@ -88,7 +88,7 @@ impl AutoDiff {
     }
   }
 
-  pub fn add(&mut self, values: &Vec<ADValue>) -> ADValue {
+  pub fn add_many(&mut self, values: &Vec<ADValue>) -> ADValue {
     let id = self.tape.len();
 
     let partials = values.iter().map(|value| {
@@ -108,7 +108,11 @@ impl AutoDiff {
     }
   }
 
-  pub fn mul(&mut self, values: &Vec<ADValue>) -> ADValue {
+  pub fn add(&mut self, left: ADValue, right: ADValue) -> ADValue {
+    self.add_many(&vec![left, right])
+  }
+
+  pub fn mul_many(&mut self, values: &Vec<ADValue>) -> ADValue {
     let id = self.tape.len();
 
     let partials = values.iter().enumerate().map(|(i, value)| {
@@ -134,7 +138,11 @@ impl AutoDiff {
     }
   }
 
-  pub fn div2(&mut self, left: &ADValue, right: &ADValue) -> ADValue {
+  pub fn mul(&mut self, left: ADValue, right: ADValue) -> ADValue {
+    self.mul_many(&vec![left, right])
+  }
+
+  pub fn div(&mut self, left: ADValue, right: ADValue) -> ADValue {
     let id = self.tape.len();
 
     let partials = vec![
@@ -158,7 +166,7 @@ impl AutoDiff {
     }
   }
 
-  pub fn sub(&mut self, values: &Vec<ADValue>) -> ADValue {
+  pub fn sub_many(&mut self, values: &Vec<ADValue>) -> ADValue {
     let id = self.tape.len();
 
     let partials = values.iter().enumerate().map(|(i, value)| {
@@ -180,7 +188,11 @@ impl AutoDiff {
     }
   }
 
-  pub fn exp(&mut self, value: &ADValue) -> ADValue {
+  pub fn sub(&mut self, left: ADValue, right: ADValue) -> ADValue {
+    self.sub_many(&vec![left, right])
+  }
+
+  pub fn exp(&mut self, value: ADValue) -> ADValue {
     let exp = value.scalar().exp();
 
     let id = self.tape.len();
@@ -211,8 +223,8 @@ mod tests {
   fn test_add_simple() {
     let mut ad = AutoDiff::new();
     let x = ad.create_variable(1.0);
-    let y = ad.add(&vec![x, x]);
-    let dy_dx = ad.diff(&y, &x);
+    let y = ad.add(x, x);
+    let dy_dx = ad.diff(y, x);
     assert_eq!(y.scalar(), 2.0);
     assert_eq!(dy_dx, 2.0);
   }
@@ -221,8 +233,8 @@ mod tests {
   fn test_dx2_dx() {
     let mut ad = AutoDiff::new();
     let x = ad.create_variable(2.0);
-    let y = ad.mul(&vec![x, x]);
-    let dy_dx = ad.diff(&y, &x);
+    let y = ad.mul(x, x);
+    let dy_dx = ad.diff(y, x);
     assert_eq!(dy_dx, 4.0);
     assert_eq!(y.scalar(), 4.0);
   }
@@ -232,10 +244,10 @@ mod tests {
       let mut ad = AutoDiff::new();
       let x = ad.create_variable(2.0);
       let y = ad.create_variable(3.0);
-      let z = ad.mul(&vec![x, x, y]);
+      let z = ad.mul_many(&vec![x, x, y]);
 
-      assert_eq!(ad.diff(&z, &x), 12.0);
-      assert_eq!(ad.diff(&z, &y), 4.0);
+      assert_eq!(ad.diff(z, x), 12.0);
+      assert_eq!(ad.diff(z, y), 4.0);
   }
 
   #[test]
@@ -243,9 +255,9 @@ mod tests {
     let mut ad = AutoDiff::new();
     let x = ad.create_variable(1.0);
     let y = ad.create_variable(2.0);
-    let z = ad.sub(&vec![x, y]);
-    let dz_dx = ad.diff(&z, &x);
-    let dz_dy = ad.diff(&z, &y);
+    let z = ad.sub(x, y);
+    let dz_dx = ad.diff(z, x);
+    let dz_dy = ad.diff(z, y);
     assert_eq!(dz_dx, 1.0);
     assert_eq!(dz_dy, -1.0);
     assert_eq!(z.scalar(), -1.0);
@@ -256,9 +268,9 @@ mod tests {
     let mut ad = AutoDiff::new();
     let x = ad.create_variable(3.0);
     let y = ad.create_variable(2.0);
-    let z = ad.mul(&vec![x, y]);
-    let dz_dx = ad.diff(&z, &x);
-    let dz_dy = ad.diff(&z, &y);
+    let z = ad.mul(x, y);
+    let dz_dx = ad.diff(z, x);
+    let dz_dy = ad.diff(z, y);
     assert_eq!(dz_dx, 2.0);
     assert_eq!(dz_dy, 3.0);
     assert_eq!(z.scalar(), 6.0);
@@ -269,9 +281,9 @@ mod tests {
     let mut ad = AutoDiff::new();
     let x = ad.create_variable(1.0);
     let y = ad.create_variable(2.0);
-    let z = ad.div2(&x, &y);
-    let dz_dx = ad.diff(&z, &x);
-    let dz_dy = ad.diff(&z, &y);
+    let z = ad.div(x, y);
+    let dz_dx = ad.diff(z, x);
+    let dz_dy = ad.diff(z, y);
     assert_eq!(dz_dx, 0.5);
     assert_eq!(dz_dy, -0.25);
     assert_eq!(z.scalar(), 0.5);
@@ -281,8 +293,8 @@ mod tests {
   fn test_exp() {
     let mut ad = AutoDiff::new();
     let x = ad.create_variable(1.0);
-    let y = ad.exp(&x);
-    let dy_dx = ad.diff(&y, &x);
+    let y = ad.exp(x);
+    let dy_dx = ad.diff(y, x);
     assert_eq!(dy_dx, 1.0f32.exp());
   }
 
@@ -291,12 +303,12 @@ mod tests {
       let mut ad = AutoDiff::new();
       let x = ad.create_variable(3.0);
       let y = ad.create_variable(4.0);
-      let exp_x = ad.exp(&x);
-      let exp_x_minus_y = ad.sub(&vec![exp_x, y]);
-      let o = ad.div2(&y, &exp_x_minus_y);
+      let exp_x = ad.exp(x);
+      let exp_x_minus_y = ad.sub_many(&vec![exp_x, y]);
+      let o = ad.div(y, exp_x_minus_y);
       print!("{:#?}", ad);
 
-      assert_eq!(ad.diff(&o, &x), -0.310507656);
-      assert_eq!(ad.diff(&o, &y), 0.077626914);
+      assert_eq!(ad.diff(o, x), -0.310507656);
+      assert_eq!(ad.diff(o, y), 0.077626914);
   }
 }
