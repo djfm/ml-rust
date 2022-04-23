@@ -2,17 +2,13 @@ use std::collections::HashMap;
 
 #[derive(Copy, Clone, Debug)]
 pub struct ADValue {
-  id: Option<usize>,
+  id: usize,
   value: f32,
 }
 
 impl ADValue {
-  pub fn is_constant(&self) -> bool {
-    self.id.is_none()
-  }
-
-  pub fn is_variable(&self) -> bool {
-    self.id.is_some()
+  pub fn scalar(&self) -> f32 {
+    self.value
   }
 }
 
@@ -58,52 +54,36 @@ impl AutoDiff {
     }
   }
 
-  pub fn create_constant(&mut self, value: f32) -> ADValue {
-    ADValue {
-      id: None,
-      value,
-    }
-  }
-
   pub fn create_variable(&mut self, value: f32) -> ADValue {
     let id = self.tape.len();
     self.tape.records.push(TapeRecord {
       partials: Vec::new(),
     });
     ADValue {
-      id: Some(id),
+      id,
       value,
     }
   }
 
   fn compute_gradient(&mut self, y: &ADValue) {
-    let y_id = y.id.unwrap();
-    let mut dy = vec![0.0; y_id + 1];
+    let mut dy = vec![0.0; y.id + 1];
 
-    dy[y_id] = 1.0;
-    for i in (0..y_id+1).rev() {
+    dy[y.id] = 1.0;
+    for i in (0..y.id+1).rev() {
       for record in &self.tape.records[i].partials {
         dy[record.with_respect_to_id] += dy[i] * record.value;
       }
     }
 
-    self.gradients.insert(y_id, dy);
+    self.gradients.insert(y.id, dy);
   }
 
   pub fn diff(&mut self, y: &ADValue, wrt: &ADValue) -> f32 {
-    if y.is_constant() {
-      return 0.0;
-    }
-
-    if (wrt.is_constant()) {
-      panic!("cannot differentiate with respect to a constant");
-    }
-
-    match self.gradients.get(&y.id.unwrap()) {
-      Some(dy) => dy[wrt.id.unwrap()],
+    match self.gradients.get(&y.id) {
+      Some(dy) => dy[wrt.id],
       None => {
         self.compute_gradient(y);
-        self.gradients[&y.id.unwrap()][wrt.id.unwrap()]
+        self.gradients[&y.id][wrt.id]
       }
     }
   }
@@ -111,9 +91,9 @@ impl AutoDiff {
   pub fn add(&mut self, values: &Vec<ADValue>) -> ADValue {
     let id = self.tape.len();
 
-    let partials = values.iter().filter(|v| v.is_variable()).map(|value| {
+    let partials = values.iter().map(|value| {
       PartialDiff {
-        with_respect_to_id: value.id.unwrap(),
+        with_respect_to_id: value.id,
         value: 1.0,
       }
     }).collect();
@@ -123,22 +103,22 @@ impl AutoDiff {
     });
 
     ADValue {
-      id: Some(id),
-      value: values.iter().map(|value| value.value).sum(),
+      id,
+      value: values.iter().map(|value| value.scalar()).sum(),
     }
   }
 
   pub fn mul(&mut self, values: &Vec<ADValue>) -> ADValue {
     let id = self.tape.len();
 
-    let partials = values.iter().filter(|v| v.is_variable()).enumerate().map(|(i, value)| {
+    let partials = values.iter().enumerate().map(|(i, value)| {
       PartialDiff {
-        with_respect_to_id: value.id.unwrap(),
+        with_respect_to_id: value.id,
         value: values.iter().enumerate().map(|(j, value)| {
           if i == j {
             1.0
           } else {
-            value.value
+            value.scalar()
           }
         }).product(),
       }
@@ -149,8 +129,76 @@ impl AutoDiff {
     });
 
     ADValue {
-      id: Some(id),
-      value: values.iter().map(|value| value.value).sum(),
+      id,
+      value: values.iter().map(|value| value.scalar()).product(),
+    }
+  }
+
+  pub fn div2(&mut self, left: &ADValue, right: &ADValue) -> ADValue {
+    let id = self.tape.len();
+
+    let partials = vec![
+      PartialDiff {
+        with_respect_to_id: left.id,
+        value: 1.0 / right.scalar(),
+      },
+      PartialDiff {
+        with_respect_to_id: right.id,
+        value: -left.scalar() / right.scalar().powi(2),
+      },
+    ];
+
+    self.tape.records.push(TapeRecord {
+      partials,
+    });
+
+    ADValue {
+      id,
+      value: left.scalar() / right.scalar(),
+    }
+  }
+
+  pub fn sub(&mut self, values: &Vec<ADValue>) -> ADValue {
+    let id = self.tape.len();
+
+    let partials = values.iter().enumerate().map(|(i, value)| {
+        PartialDiff {
+          with_respect_to_id: value.id,
+          value: if i == 0 { 1.0 } else { -1.0 },
+        }
+    }).collect();
+
+    self.tape.records.push(TapeRecord {
+      partials,
+    });
+
+    ADValue {
+      id,
+      value: values.iter().enumerate().map(
+        |(i, value)| if i == 0 { value.scalar() } else { -value.scalar() }
+      ).sum(),
+    }
+  }
+
+  pub fn exp(&mut self, value: &ADValue) -> ADValue {
+    let exp = value.scalar().exp();
+
+    let id = self.tape.len();
+
+    let partials = vec![
+      PartialDiff {
+        with_respect_to_id: value.id,
+        value: exp,
+      }
+    ];
+
+    self.tape.records.push(TapeRecord {
+      partials,
+    });
+
+    ADValue {
+      id,
+      value: exp,
     }
   }
 }
@@ -164,10 +212,8 @@ mod tests {
     let mut ad = AutoDiff::new();
     let x = ad.create_variable(1.0);
     let y = ad.add(&vec![x, x]);
-
-    print!("{:#?}", ad);
-
     let dy_dx = ad.diff(&y, &x);
+    assert_eq!(y.scalar(), 2.0);
     assert_eq!(dy_dx, 2.0);
   }
 
@@ -178,5 +224,79 @@ mod tests {
     let y = ad.mul(&vec![x, x]);
     let dy_dx = ad.diff(&y, &x);
     assert_eq!(dy_dx, 4.0);
+    assert_eq!(y.scalar(), 4.0);
+  }
+
+  #[test]
+  fn test_dx2y_dx_dx2y_dy() {
+      let mut ad = AutoDiff::new();
+      let x = ad.create_variable(2.0);
+      let y = ad.create_variable(3.0);
+      let z = ad.mul(&vec![x, x, y]);
+
+      assert_eq!(ad.diff(&z, &x), 12.0);
+      assert_eq!(ad.diff(&z, &y), 4.0);
+  }
+
+  #[test]
+  fn test_sub() {
+    let mut ad = AutoDiff::new();
+    let x = ad.create_variable(1.0);
+    let y = ad.create_variable(2.0);
+    let z = ad.sub(&vec![x, y]);
+    let dz_dx = ad.diff(&z, &x);
+    let dz_dy = ad.diff(&z, &y);
+    assert_eq!(dz_dx, 1.0);
+    assert_eq!(dz_dy, -1.0);
+    assert_eq!(z.scalar(), -1.0);
+  }
+
+  #[test]
+  fn test_mul() {
+    let mut ad = AutoDiff::new();
+    let x = ad.create_variable(3.0);
+    let y = ad.create_variable(2.0);
+    let z = ad.mul(&vec![x, y]);
+    let dz_dx = ad.diff(&z, &x);
+    let dz_dy = ad.diff(&z, &y);
+    assert_eq!(dz_dx, 2.0);
+    assert_eq!(dz_dy, 3.0);
+    assert_eq!(z.scalar(), 6.0);
+  }
+
+  #[test]
+  fn test_div() {
+    let mut ad = AutoDiff::new();
+    let x = ad.create_variable(1.0);
+    let y = ad.create_variable(2.0);
+    let z = ad.div2(&x, &y);
+    let dz_dx = ad.diff(&z, &x);
+    let dz_dy = ad.diff(&z, &y);
+    assert_eq!(dz_dx, 0.5);
+    assert_eq!(dz_dy, -0.25);
+    assert_eq!(z.scalar(), 0.5);
+  }
+
+  #[test]
+  fn test_exp() {
+    let mut ad = AutoDiff::new();
+    let x = ad.create_variable(1.0);
+    let y = ad.exp(&x);
+    let dy_dx = ad.diff(&y, &x);
+    assert_eq!(dy_dx, 1.0f32.exp());
+  }
+
+  #[test]
+  fn test_much_more_complex_diff() {
+      let mut ad = AutoDiff::new();
+      let x = ad.create_variable(3.0);
+      let y = ad.create_variable(4.0);
+      let exp_x = ad.exp(&x);
+      let exp_x_minus_y = ad.sub(&vec![exp_x, y]);
+      let o = ad.div2(&y, &exp_x_minus_y);
+      print!("{:#?}", ad);
+
+      assert_eq!(ad.diff(&o, &x), -0.310507656);
+      assert_eq!(ad.diff(&o, &y), 0.077626914);
   }
 }
