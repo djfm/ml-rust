@@ -57,6 +57,10 @@ impl Network {
         }
     }
 
+    pub fn autodiff(&mut self) -> &mut AutoDiff {
+        &mut self.autodiff
+    }
+
     pub fn create_variable(&mut self, value: f32) -> ADValue {
         self.autodiff.create_variable(value)
     }
@@ -157,5 +161,22 @@ impl Network {
         }
 
         self.layers.last().unwrap().to_vec()
+    }
+
+    pub fn compute_example_error(&mut self, input: &dyn Example) -> ADValue {
+        let output = self.feed_forward(input);
+        let one_hot_label: Vec<ADValue> = input
+            .get_one_hot_label().iter()
+            .map(|&x| self.autodiff.create_variable(x))
+            .collect();
+
+        if output.len() != one_hot_label.len() {
+            panic!("output vector length does not match the number of neurons in the last layer");
+        }
+
+        self.autodiff.euclidean_distance_squared(
+            &output,
+            &one_hot_label,
+        )
     }
 }

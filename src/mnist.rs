@@ -183,8 +183,28 @@ pub fn train() {
 
     let training = load_testing_set().unwrap();
 
+    let batch_size = 32;
+    let mut pos_in_batch = 0;
+    let mut batch_number = 0;
+
+    let mut batch_error = network.autodiff().create_variable(0.0);
+
     for image in training.iter() {
-        println!("training {}", image.label);
-        network.feed_forward(image);
+        let error = network.compute_example_error(image);
+        batch_error = network.autodiff().add(batch_error, error);
+
+        if pos_in_batch >= batch_size - 1 || pos_in_batch >= training.len() {
+            println!(
+                "batch {} trained, error: {}",
+                batch_number,
+                100.0 * batch_error.scalar() / batch_size as f32,
+            );
+
+            batch_error = network.autodiff().create_variable(0.0);
+            pos_in_batch = 0;
+            batch_number += 1;
+        } else {
+            pos_in_batch += 1;
+        }
     }
 }

@@ -263,6 +263,21 @@ impl AutoDiff {
             }
         }
     }
+
+    pub fn euclidean_distance_squared(&mut self, left: &Vec<ADValue>, right: &Vec<ADValue>) -> ADValue {
+        if left.len() != right.len() {
+            panic!("cannot compute distance between vectors of different lengths");
+        }
+
+        let mut distance = self.create_variable(0.0);
+        left.iter().zip(right.iter()).for_each(|(l, r)| {
+            let diff = self.sub(*l, *r);
+            let square = self.mul(diff, diff);
+            distance = self.add(distance, square);
+        });
+
+        distance
+    }
 }
 
 #[cfg(test)]
