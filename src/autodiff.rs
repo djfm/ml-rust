@@ -1,5 +1,10 @@
 use std::collections::HashMap;
 
+use super::activations::{
+    NeuronActivation,
+    LayerActivation,
+};
+
 #[derive(Copy, Clone, Debug)]
 pub struct ADValue {
     id: usize,
@@ -211,6 +216,51 @@ impl AutoDiff {
         ADValue {
             id,
             value: exp,
+        }
+    }
+
+    pub fn apply_neuron_activation(&mut self, value: ADValue, activation: &NeuronActivation) -> ADValue {
+        match activation {
+            NeuronActivation::LeakyReLU(alpha) => {
+                let id = self.tape.len();
+
+                let partials = vec![
+                PartialDiff {
+                    with_respect_to_id: value.id,
+                    value: if value.scalar() > 0.0 { 1.0 } else { *alpha },
+                }
+                ];
+
+                self.tape.records.push(TapeRecord {
+                    partials,
+                });
+
+                ADValue {
+                    id,
+                    value: if value.scalar() > 0.0 { value.scalar() } else { value.scalar() * *alpha },
+                }
+            },
+        }
+    }
+
+    pub fn apply_layer_activation(&mut self, values: &Vec<ADValue>, activation: &LayerActivation) -> Vec<ADValue> {
+        match activation {
+            LayerActivation::SoftMax => {
+                let mut res = Vec::new();
+                let mut sum = self.create_variable(0.0);
+
+                for v in values {
+                    let exp = self.exp(*v);
+                    sum = self.add(sum, exp);
+                    res.push(exp);
+                }
+
+                for r in res.iter_mut() {
+                    *r = self.div(*r, sum);
+                }
+
+                res
+            }
         }
     }
 }

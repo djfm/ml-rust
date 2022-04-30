@@ -166,18 +166,18 @@ pub fn train() {
     network
         .add_layer(
             28 * 28,
-            NeuronActivation::None,
-            LayerActivation::None
+            None,
+            None
         )
         .add_layer(
             32,
-            NeuronActivation::LeakyReLU(0.01),
-            LayerActivation::None
+            Some(NeuronActivation::LeakyReLU(0.01)),
+            None
         )
         .add_layer(
             10,
-            NeuronActivation::None,
-            LayerActivation::SoftMax,
+            None,
+            Some(LayerActivation::SoftMax),
         )
     ;
 

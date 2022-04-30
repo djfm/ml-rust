@@ -17,26 +17,31 @@ pub trait Example {
 
 #[derive(Copy, Clone)]
 struct Param {
-    value: f32,
     ad_value: ADValue,
-}
-
-struct Connection {
-    layer_depth: usize,
-    pos_in_layer: usize,
-    weight: Param,
 }
 
 struct Neuron {
     bias: Option<Param>,
-    connections: Vec<Connection>,
-    activation: NeuronActivation,
+    weights: Vec<Param>,
+    activation: Option<NeuronActivation>,
     value: Param,
 }
 
 struct FFLayer {
     neurons: Vec<Neuron>,
-    activation: LayerActivation,
+    activation: Option<LayerActivation>,
+}
+
+impl FFLayer {
+    fn to_vec(&self) -> Vec<ADValue> {
+        self.neurons.iter().map(|n| n.value.ad_value).collect()
+    }
+
+    fn from_vec(&mut self, input: &Vec<ADValue>) {
+        for (n, i) in self.neurons.iter_mut().zip(input.iter()) {
+            n.value.ad_value = *i;
+        }
+    }
 }
 
 pub struct Network {
@@ -59,8 +64,8 @@ impl Network {
     pub fn add_layer(
         &mut self,
         neurons_count: usize,
-        neuron_activation: NeuronActivation,
-        layer_activation: LayerActivation,
+        neuron_activation: Option<NeuronActivation>,
+        layer_activation: Option<LayerActivation>,
     ) -> &mut Network {
         let mut rng = rand::thread_rng();
 
@@ -70,38 +75,29 @@ impl Network {
         };
 
 
-        for neuron_pos in 0..neurons_count {
-            let mut connections = Vec::new();
+        for _ in 0..neurons_count {
+            let mut weights = Vec::new();
 
             if self.layers.len() > 0 {
                 let prev_layer = self.layers.last().unwrap();
                 for prev_neuron_pos in 0..prev_layer.neurons.len() {
-                    let weight = rng.gen();
-                    connections.push(Connection {
-                        layer_depth: self.layers.len() - 1,
-                        pos_in_layer: prev_neuron_pos,
-                        weight: Param {
-                            value: weight,
-                            ad_value: self.create_variable(weight)
-                        },
+                    weights.push(Param {
+                        ad_value: self.create_variable(rng.gen()),
                     });
                 }
             }
 
-            let bias = rng.gen();
             let neuron = Neuron {
+                weights,
                 bias: if self.layers.len() == 0 {
                     None
                 } else {
                     Some(Param {
-                        value: bias,
-                        ad_value: self.create_variable(bias),
+                        ad_value: self.create_variable(rng.gen()),
                     })
                 },
-                connections,
                 activation: neuron_activation,
                 value: Param {
-                    value: 0.0,
                     ad_value: self.create_variable(0.0),
                 },
             };
@@ -111,6 +107,11 @@ impl Network {
         self
     }
 
+    fn get_neuron_value(&self, layer_depth: usize, pos_in_layer: usize) -> Param {
+        let neuron = &self.layers[layer_depth].neurons[pos_in_layer];
+        neuron.value
+    }
+
     pub fn feed_forward(&mut self, input: &dyn Example) -> Vec<ADValue> {
         let input_vec = input.get_input();
 
@@ -118,47 +119,48 @@ impl Network {
             panic!("input vector length does not match the number of neurons in the first layer");
         }
 
-        for (neuron_pos, neuron) in self.layers[0].neurons.iter_mut().enumerate() {
-            neuron.value.value = input_vec[neuron_pos];
-            neuron.value.ad_value = self.autodiff.create_variable(neuron.value.value);
+        for (neuron, &input_value) in self.layers[0].neurons.iter_mut().zip(input_vec.iter()) {
+            neuron.value.ad_value = self.autodiff.create_variable(input_value);
         }
 
         for l in 1..self.layers.len() {
-            for n in 0..self.layers[l].neurons.len() {
-                let neuron = &mut self.layers[l].neurons[n];
-                let bias = match neuron.bias {
-                    Some(bias) => bias.value,
-                    None => 0.0,
-                };
+            let (prev_layer, next_layers) = self.layers.split_at_mut(l);
+            let layer = next_layers.first_mut().unwrap();
+            let prev_layer = &prev_layer[0];
 
-                neuron.value = Param{
-                    value: bias,
-                    ad_value: self.autodiff.create_variable(bias),
-                };
+            for neuron in layer.neurons.iter_mut() {
+                neuron.value.ad_value = self.autodiff.create_variable(0.0);
 
-                for c in 0..self.layers[l].neurons[n].connections.len() {
-                    let connection = &mut self.layers[l].neurons[n].connections[c];
-                    let connection_depth = connection.layer_depth;
-                    let connection_pos = connection.pos_in_layer;
-                    let connected_layer = &self.layers[connection_depth];
-                    let connected_value = connected_layer.neurons[connection_pos].value;
-                    let connected_weight = self.layers[l].neurons[n].connections[c].weight;
-
+                for w in 0..neuron.weights.len() {
                     let contrib = self.autodiff.mul(
-                        connected_value.ad_value,
-                        connected_weight.ad_value,
+                        neuron.weights[w].ad_value,
+                        prev_layer.neurons[w].value.ad_value,
                     );
 
-                    let sum = self.autodiff.add(
-                        self.layers[l].neurons[n].value.ad_value,
+                    neuron.value.ad_value = self.autodiff.add(
+                        neuron.value.ad_value,
                         contrib,
                     );
-                    self.layers[l].neurons[n].value.ad_value = sum;
-                    self.layers[l].neurons[n].value.value = sum.scalar();
                 }
+
+                if let Some(activation) = neuron.activation {
+                    neuron.value.ad_value = self.autodiff.apply_neuron_activation(
+                        neuron.value.ad_value,
+                        &activation,
+                    );
+                }
+            }
+
+            if let Some(activation) = layer.activation {
+                let activated = self.autodiff.apply_layer_activation(
+                    &layer.to_vec(),
+                    &activation,
+                );
+
+                layer.from_vec(&activated);
             }
         }
 
-        self.layers.last().unwrap().neurons.iter().map(|n| n.value.ad_value).collect()
+        self.layers.last().unwrap().to_vec()
     }
 }
