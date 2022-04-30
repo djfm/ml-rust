@@ -107,11 +107,6 @@ impl Network {
         self
     }
 
-    fn get_neuron_value(&self, layer_depth: usize, pos_in_layer: usize) -> Param {
-        let neuron = &self.layers[layer_depth].neurons[pos_in_layer];
-        neuron.value
-    }
-
     pub fn feed_forward(&mut self, input: &dyn Example) -> Vec<ADValue> {
         let input_vec = input.get_input();
 
