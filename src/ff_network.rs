@@ -83,14 +83,22 @@ impl Network {
         };
 
         for _ in 0..neurons_count {
-            let mut weights = Vec::new();
+            let mut weights_f32: Vec<f32> = Vec::new();
 
             if self.layers.len() > 0 {
                 let prev_layer = self.layers.last().unwrap();
+                let mut total_weight = 0.0f32;
                 for _ in 0..prev_layer.neurons.len() {
-                    weights.push(self.create_param(rng.gen()));
+                    let weight = rng.gen();
+                    weights_f32.push(weight);
+                    total_weight += weight;
+                }
+                for w in weights_f32.iter_mut() {
+                    *w /= total_weight;
                 }
             }
+
+            let weights = weights_f32.iter().map(|w| self.create_param(*w)).collect();
 
             let neuron = Neuron {
                 weights,
