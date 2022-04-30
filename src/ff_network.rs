@@ -10,13 +10,14 @@ use super::autodiff::{
     ADValue,
 };
 
-pub trait Example {
+pub trait ClassificationExample {
     fn get_input(&self) -> Vec<f32>;
-    fn get_one_hot_label(&self) -> Vec<f32>;
+    fn get_label(&self) -> usize;
 }
 
 #[derive(Copy, Clone)]
 struct Param {
+    scalar: f32,
     ad_value: ADValue,
 }
 
@@ -24,7 +25,7 @@ struct Neuron {
     bias: Option<Param>,
     weights: Vec<Param>,
     activation: Option<NeuronActivation>,
-    value: Param,
+    ad_value: ADValue,
 }
 
 struct FFLayer {
@@ -34,12 +35,12 @@ struct FFLayer {
 
 impl FFLayer {
     fn to_vec(&self) -> Vec<ADValue> {
-        self.neurons.iter().map(|n| n.value.ad_value).collect()
+        self.neurons.iter().map(|n| n.ad_value).collect()
     }
 
     fn from_vec(&mut self, input: &Vec<ADValue>) {
         for (n, i) in self.neurons.iter_mut().zip(input.iter()) {
-            n.value.ad_value = *i;
+            n.ad_value = *i;
         }
     }
 }
@@ -61,8 +62,11 @@ impl Network {
         &mut self.autodiff
     }
 
-    pub fn create_variable(&mut self, value: f32) -> ADValue {
-        self.autodiff.create_variable(value)
+    fn create_param(&mut self, value: f32) -> Param {
+        Param {
+            ad_value: self.autodiff.create_variable(value),
+            scalar: value,
+        }
     }
 
     pub fn add_layer(
@@ -78,16 +82,13 @@ impl Network {
             activation: layer_activation,
         };
 
-
         for _ in 0..neurons_count {
             let mut weights = Vec::new();
 
             if self.layers.len() > 0 {
                 let prev_layer = self.layers.last().unwrap();
-                for prev_neuron_pos in 0..prev_layer.neurons.len() {
-                    weights.push(Param {
-                        ad_value: self.create_variable(rng.gen()),
-                    });
+                for _ in 0..prev_layer.neurons.len() {
+                    weights.push(self.create_param(rng.gen()));
                 }
             }
 
@@ -96,14 +97,10 @@ impl Network {
                 bias: if self.layers.len() == 0 {
                     None
                 } else {
-                    Some(Param {
-                        ad_value: self.create_variable(rng.gen()),
-                    })
+                    Some(self.create_param(rng.gen()))
                 },
                 activation: neuron_activation,
-                value: Param {
-                    ad_value: self.create_variable(0.0),
-                },
+                ad_value: self.autodiff.create_variable(0.0),
             };
             layer.neurons.push(neuron);
         }
@@ -111,7 +108,7 @@ impl Network {
         self
     }
 
-    pub fn feed_forward(&mut self, input: &dyn Example) -> Vec<ADValue> {
+    pub fn feed_forward(&mut self, input: &dyn ClassificationExample) -> Vec<ADValue> {
         let input_vec = input.get_input();
 
         if input_vec.len() != self.layers[0].neurons.len() {
@@ -119,32 +116,36 @@ impl Network {
         }
 
         for (neuron, &input_value) in self.layers[0].neurons.iter_mut().zip(input_vec.iter()) {
-            neuron.value.ad_value = self.autodiff.create_variable(input_value);
+            neuron.ad_value = self.autodiff.create_variable(input_value);
         }
 
         for l in 1..self.layers.len() {
             let (prev_layer, next_layers) = self.layers.split_at_mut(l);
-            let layer = next_layers.first_mut().unwrap();
+            let layer = &mut next_layers[0];
             let prev_layer = &prev_layer[0];
 
             for neuron in layer.neurons.iter_mut() {
-                neuron.value.ad_value = self.autodiff.create_variable(0.0);
+                neuron.ad_value = if let Some(bias) = neuron.bias {
+                    bias.ad_value
+                } else {
+                    self.autodiff.create_variable(0.0)
+                };
 
-                for w in 0..neuron.weights.len() {
+                for (w, connected_neuron) in neuron.weights.iter().zip(prev_layer.neurons.iter()) {
                     let contrib = self.autodiff.mul(
-                        neuron.weights[w].ad_value,
-                        prev_layer.neurons[w].value.ad_value,
+                        w.ad_value,
+                        connected_neuron.ad_value,
                     );
 
-                    neuron.value.ad_value = self.autodiff.add(
-                        neuron.value.ad_value,
+                    neuron.ad_value = self.autodiff.add(
+                        neuron.ad_value,
                         contrib,
                     );
                 }
 
                 if let Some(activation) = neuron.activation {
-                    neuron.value.ad_value = self.autodiff.apply_neuron_activation(
-                        neuron.value.ad_value,
+                    neuron.ad_value = self.autodiff.apply_neuron_activation(
+                        neuron.ad_value,
                         &activation,
                     );
                 }
@@ -163,20 +164,55 @@ impl Network {
         self.layers.last().unwrap().to_vec()
     }
 
-    pub fn compute_example_error(&mut self, input: &dyn Example) -> ADValue {
+    pub fn compute_example_error(&mut self, input: &dyn ClassificationExample) -> ADValue {
         let output = self.feed_forward(input);
-        let one_hot_label: Vec<ADValue> = input
-            .get_one_hot_label().iter()
-            .map(|&x| self.autodiff.create_variable(x))
-            .collect();
-
-        if output.len() != one_hot_label.len() {
-            panic!("output vector length does not match the number of neurons in the last layer");
-        }
+        let mut expected = vec![self.autodiff.create_variable(0.0); output.len()];
+        expected[input.get_label()] = self.autodiff.create_variable(1.0);
 
         self.autodiff.euclidean_distance_squared(
             &output,
-            &one_hot_label,
+            &expected,
         )
+    }
+
+    pub fn back_propagate(&mut self, error: ADValue, learning_rate: f32) {
+        // Perform the actual back propagation
+        for l in 1..self.layers.len() {
+            let layer = &mut self.layers[l];
+            for neuron in layer.neurons.iter_mut() {
+                for weight in neuron.weights.iter_mut() {
+                    let error_contrib = self.autodiff.diff(
+                        error,
+                        weight.ad_value,
+                    );
+                    weight.scalar -= learning_rate * error_contrib;
+                }
+
+                if let Some(mut bias) = neuron.bias {
+                    let error_contrib = self.autodiff.diff(
+                        error,
+                        bias.ad_value,
+                    );
+                    bias.scalar -= learning_rate * error_contrib;
+                }
+            }
+        }
+
+        // Avoid explosion of the number of tracked variables
+        self.autodiff.reset();
+
+        // Prepare the network again for next automatic differentiation
+        for l in 1..self.layers.len() {
+            let layer = &mut self.layers[l];
+            for neuron in layer.neurons.iter_mut() {
+                for weight in neuron.weights.iter_mut() {
+                    weight.ad_value = self.autodiff.create_variable(weight.scalar);
+                }
+
+                if let Some(mut bias) = neuron.bias {
+                    bias.ad_value = self.autodiff.create_variable(bias.scalar);
+                }
+            }
+        }
     }
 }

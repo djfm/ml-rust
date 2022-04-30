@@ -5,12 +5,7 @@ use std::io::Seek;
 
 use super::ff_network::{
     Network,
-    Example,
-};
-
-
-use super::autodiff::{
-    AutoDiff,
+    ClassificationExample,
 };
 
 use super::activations::{
@@ -23,15 +18,13 @@ pub struct Image {
     pub label: u8,
 }
 
-impl Example for Image {
+impl ClassificationExample for Image {
     fn get_input(&self) -> Vec<f32> {
         self.pixels.iter().map(|&x| x as f32 / 255.0).collect()
     }
 
-    fn get_one_hot_label(&self) -> Vec<f32> {
-        let mut label = vec![0.0; 10];
-        label[self.label as usize] = 1.0;
-        label
+    fn get_label(&self) -> usize {
+        self.label as usize
     }
 }
 
@@ -181,30 +174,41 @@ pub fn train() {
         )
     ;
 
-    let training = load_testing_set().unwrap();
+    let training = load_training_set().unwrap();
+    println!("Loaded {} MNIST training samples", training.len());
 
+    // Training params
     let batch_size = 32;
-    let mut pos_in_batch = 0;
+    let learning_rate = 0.01;
+    let epochs = 5;
+
+    // Utility variables
+    let mut batch_error = network.autodiff().create_variable(0.0);
+    let mut current_batch_size = 0;
     let mut batch_number = 0;
 
-    let mut batch_error = network.autodiff().create_variable(0.0);
+    for epoch in 1..=epochs {
+        for (i, image) in training.iter().enumerate() {
+            let error = network.compute_example_error(image);
+            batch_error = network.autodiff().add(batch_error, error);
+            current_batch_size += 1;
 
-    for image in training.iter() {
-        let error = network.compute_example_error(image);
-        batch_error = network.autodiff().add(batch_error, error);
+            if current_batch_size >= batch_size || i >= training.len() - 1 {
+                let size = network.autodiff().create_variable(current_batch_size as f32);
+                batch_error = network.autodiff().div(batch_error, size);
+                network.back_propagate(batch_error, learning_rate);
 
-        if pos_in_batch >= batch_size - 1 || pos_in_batch >= training.len() {
-            println!(
-                "batch {} trained, error: {}",
-                batch_number,
-                100.0 * batch_error.scalar() / batch_size as f32,
-            );
+                println!(
+                    "batch {} of epoch {} trained, error: {:.4}",
+                    batch_number,
+                    epoch,
+                    100.0 * batch_error.scalar(),
+                );
 
-            batch_error = network.autodiff().create_variable(0.0);
-            pos_in_batch = 0;
-            batch_number += 1;
-        } else {
-            pos_in_batch += 1;
+                batch_error = network.autodiff().create_variable(0.0);
+                current_batch_size = 0;
+                batch_number += 1;
+            }
         }
     }
 }

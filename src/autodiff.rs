@@ -59,6 +59,11 @@ impl AutoDiff {
         }
     }
 
+    pub fn reset(&mut self) {
+        self.tape = Tape::new();
+        self.gradients.clear();
+    }
+
     pub fn create_variable(&mut self, value: f32) -> ADValue {
         let id = self.tape.len();
         self.tape.records.push(TapeRecord {
@@ -225,10 +230,14 @@ impl AutoDiff {
                 let id = self.tape.len();
 
                 let partials = vec![
-                PartialDiff {
-                    with_respect_to_id: value.id,
-                    value: if value.scalar() > 0.0 { 1.0 } else { *alpha },
-                }
+                    PartialDiff {
+                        with_respect_to_id: value.id,
+                        value: if value.scalar() > 0.0 {
+                            1.0
+                        } else {
+                            *alpha
+                        },
+                    }
                 ];
 
                 self.tape.records.push(TapeRecord {
@@ -237,7 +246,11 @@ impl AutoDiff {
 
                 ADValue {
                     id,
-                    value: if value.scalar() > 0.0 { value.scalar() } else { value.scalar() * *alpha },
+                    value: if value.scalar() > 0.0 {
+                        value.scalar()
+                    } else {
+                        value.scalar() * *alpha
+                    },
                 }
             },
         }
@@ -249,7 +262,7 @@ impl AutoDiff {
                 let mut res = Vec::new();
                 let mut sum = self.create_variable(0.0);
 
-                for v in values {
+                for v in values.iter() {
                     let exp = self.exp(*v);
                     sum = self.add(sum, exp);
                     res.push(exp);
