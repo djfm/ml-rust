@@ -13,6 +13,10 @@ use super::activations::{
     LayerActivation,
 };
 
+use super::graphics::{
+    show_mnist_image,
+};
+
 pub struct Image {
     pub pixels: Vec<u8>,
     pub label: u8,
