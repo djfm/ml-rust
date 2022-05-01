@@ -121,7 +121,7 @@ impl Network {
         for l in 1..self.layers.len() {
             let (prev_layer, next_layers) = self.layers.split_at_mut(l);
             let layer = &mut next_layers[0];
-            let prev_layer = &prev_layer[0];
+            let prev_layer = &prev_layer[l - 1];
 
             for neuron in layer.neurons.iter_mut() {
                 neuron.ad_value = if let Some(bias) = neuron.bias {
@@ -150,8 +150,6 @@ impl Network {
                 }
             }
 
-            println!("{:?}", layer.neurons.iter().map(|v| v.ad_value.value).collect::<Vec<_>>());
-
             if let Some(activation) = layer.activation {
                 let activated = self.autodiff.apply_layer_activation(
                     &layer.to_vec(),
@@ -162,9 +160,7 @@ impl Network {
             }
         }
 
-        let last = self.layers.last().unwrap().to_vec();
-        println!("{:?}", last.iter().map(|v| v.value).collect::<Vec<f32>>());
-        last
+        self.layers.last().unwrap().to_vec()
     }
 
     pub fn compute_example_error(&mut self, input: &dyn ClassificationExample) -> ADValue {
@@ -212,8 +208,8 @@ impl Network {
                     *weight = self.autodiff.create_variable(weight.value);
                 }
 
-                if let Some(mut bias) = neuron.bias {
-                    bias = self.autodiff.create_variable(bias.value);
+                if let Some(bias) = neuron.bias {
+                    neuron.bias = Some(self.autodiff.create_variable(bias.value));
                 }
             }
         }
@@ -262,13 +258,14 @@ mod tests {
         network
             .add_layer(2, false, None, None)
             .add_layer(2, false, Some(NeuronActivation::LeakyReLU(0.01)), None)
-            .add_layer(1, false, Some(NeuronActivation::LeakyReLU(0.01)), None)
+            .add_layer(2, false, Some(NeuronActivation::LeakyReLU(0.01)), None)
         ;
 
         let a = network.feed_forward(&XORExample::new());
         let b = network.feed_forward(&XORExample::new());
 
         assert_ne!(a[0].value, b[0].value);
+        assert_ne!(a[1].value, b[1].value);
     }
 
 }

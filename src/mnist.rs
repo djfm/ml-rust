@@ -208,7 +208,6 @@ pub fn train() {
 
     for epoch in 1..=epochs {
         for (i, image) in training.iter().enumerate() {
-            println!("\nprocessing image {} with hash {}", i, image.calculate_hash());
             let error = network.compute_example_error(image);
             batch_error = network.autodiff().add(batch_error, error);
             current_batch_size += 1;
