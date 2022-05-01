@@ -163,6 +163,45 @@ impl Network {
         self.layers.last().unwrap().to_vec()
     }
 
+    pub fn predict(&self, input: &dyn ClassificationExample) -> usize {
+        let mut activations = input.get_input();
+
+        if activations.len() != self.layers[0].neurons.len() {
+            panic!("input vector length does not match the number of neurons in the first layer");
+        }
+
+        for l in 1..self.layers.len() {
+            let layer = &self.layers[l];
+
+            let new_activations: Vec<_> = layer.neurons.iter().map(|n| {
+                let mut activation = if let Some(bias) = n.bias {
+                    bias.value
+                } else {
+                    0.0
+                };
+
+                activation += n.weights.iter().zip(activations.iter()).fold(0.0, |acc, (&weight, &input_value)| {
+                    acc + weight.value * input_value
+                });
+
+                activation
+            }).collect();
+
+            activations = new_activations;
+        }
+
+        let mut max_activation = activations[0];
+        let mut max_activation_index = 0;
+        for (i, &activation) in activations.iter().skip(1).enumerate() {
+            if activation > max_activation {
+                max_activation = activation;
+                max_activation_index = i;
+            }
+        }
+
+        max_activation_index
+    }
+
     pub fn compute_example_error(&mut self, input: &dyn ClassificationExample) -> ADValue {
         let output = self.feed_forward(input);
         let mut expected = vec![self.autodiff.create_variable(0.0); output.len()];
@@ -172,6 +211,17 @@ impl Network {
             &output,
             &expected,
         )
+    }
+
+    pub fn compute_accuracy<T: ClassificationExample>(&self, examples: &Vec<T>) -> f32 {
+        let mut correct = 0.0;
+        for example in examples {
+            if self.predict(example) == example.get_label() {
+                correct += 1.0;
+            }
+        }
+
+        100.0 * correct / examples.len() as f32
     }
 
     pub fn back_propagate(&mut self, error: ADValue, learning_rate: f32) {

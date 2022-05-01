@@ -6,6 +6,8 @@ use std::io::Seek;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
+use std::time::{Instant, Duration};
+
 use super::ff_network::{
     Network,
     ClassificationExample,
@@ -19,6 +21,33 @@ use super::activations::{
 use super::graphics::{
     show_mnist_image,
 };
+
+fn human_duration(duration: Duration) -> String {
+    let mut remaining_secs = duration.as_secs();
+    let decomposition_factors = [
+        (20 * 3600 * 30 * 12, "y"),
+        (24 * 3600 * 30, "M"),
+        (24 * 3600, "d"),
+        (3600, "h"),
+        (60, "m"),
+        (1, "s"),
+    ];
+    let mut result_parts = Vec::new();
+
+    for &(divisor, suffix) in decomposition_factors.iter() {
+        if remaining_secs >= divisor {
+            let num = remaining_secs / divisor;
+            remaining_secs %= divisor;
+            result_parts.push(format!("{}{}", num, suffix));
+        }
+    }
+
+    if result_parts.len() == 0 {
+        result_parts.push("0s".to_string());
+    }
+
+    result_parts.join(" ")
+}
 
 #[derive(Hash)]
 pub struct Image {
@@ -170,6 +199,7 @@ pub fn load_testing_set() -> Result<Vec<Image>, String> {
 }
 
 pub fn train() {
+    let start_instant = Instant::now();
     let mut network = Network::new();
 
     network
@@ -229,5 +259,25 @@ pub fn train() {
                 batch_number += 1;
             }
         }
+    }
+
+    println!("Training complete! (in {})", human_duration(start_instant.elapsed()));
+    println!("Testing...");
+    let testing = load_testing_set().unwrap();
+    let accuracy = network.compute_accuracy(&testing);
+    println!("Accuracy: {:.2}%", accuracy);
+}
+
+mod tests {
+    use super::{
+        human_duration,
+        Duration,
+    };
+
+    #[test]
+    fn test_human_duration() {
+        assert_eq!(human_duration(Duration::new(0, 0)), "0s");
+        assert_eq!(human_duration(Duration::new(61, 0)), "1m 1s");
+        assert_eq!(human_duration(Duration::new(3610, 0)), "1h 10s");
     }
 }
