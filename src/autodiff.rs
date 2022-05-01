@@ -8,13 +8,7 @@ use super::activations::{
 #[derive(Copy, Clone, Debug)]
 pub struct ADValue {
     id: usize,
-    value: f32,
-}
-
-impl ADValue {
-    pub fn scalar(&self) -> f32 {
-        self.value
-    }
+    pub value: f32,
 }
 
 #[derive(Debug)]
@@ -114,7 +108,7 @@ impl AutoDiff {
 
         ADValue {
             id,
-            value: values.iter().map(|value| value.scalar()).sum(),
+            value: values.iter().map(|v| v.value).sum(),
         }
     }
 
@@ -128,11 +122,11 @@ impl AutoDiff {
         let partials = values.iter().enumerate().map(|(i, value)| {
             PartialDiff {
                 with_respect_to_id: value.id,
-                value: values.iter().enumerate().map(|(j, value)| {
+                value: values.iter().enumerate().map(|(j, v)| {
                     if i == j {
                         1.0
                     } else {
-                        value.scalar()
+                        v.value
                     }
                 }).product(),
             }
@@ -144,7 +138,7 @@ impl AutoDiff {
 
         ADValue {
             id,
-            value: values.iter().map(|value| value.scalar()).product(),
+            value: values.iter().map(|v| v.value).product(),
         }
     }
 
@@ -158,11 +152,11 @@ impl AutoDiff {
         let partials = vec![
         PartialDiff {
             with_respect_to_id: left.id,
-            value: 1.0 / right.scalar(),
+            value: 1.0 / right.value,
         },
         PartialDiff {
             with_respect_to_id: right.id,
-            value: -left.scalar() / right.scalar().powi(2),
+            value: -left.value / right.value.powi(2),
         },
         ];
 
@@ -172,7 +166,7 @@ impl AutoDiff {
 
         ADValue {
             id,
-            value: left.scalar() / right.scalar(),
+            value: left.value / right.value,
         }
     }
 
@@ -193,7 +187,7 @@ impl AutoDiff {
         ADValue {
             id,
             value: values.iter().enumerate().map(
-                |(i, value)| if i == 0 { value.scalar() } else { -value.scalar() }
+                |(i, v)| if i == 0 { v.value } else { -v.value }
             ).sum(),
         }
     }
@@ -202,14 +196,14 @@ impl AutoDiff {
         self.sub_many(&vec![left, right])
     }
 
-    pub fn exp(&mut self, value: ADValue) -> ADValue {
-        let exp = value.scalar().exp();
+    pub fn exp(&mut self, v: ADValue) -> ADValue {
+        let exp = v.value.exp();
 
         let id = self.tape.len();
 
         let partials = vec![
         PartialDiff {
-            with_respect_to_id: value.id,
+            with_respect_to_id: v.id,
             value: exp,
         }
         ];
@@ -224,15 +218,15 @@ impl AutoDiff {
         }
     }
 
-    pub fn apply_neuron_activation(&mut self, value: ADValue, activation: &NeuronActivation) -> ADValue {
+    pub fn apply_neuron_activation(&mut self, v: ADValue, activation: &NeuronActivation) -> ADValue {
         match activation {
             NeuronActivation::LeakyReLU(alpha) => {
                 let id = self.tape.len();
 
                 let partials = vec![
                     PartialDiff {
-                        with_respect_to_id: value.id,
-                        value: if value.scalar() > 0.0 {
+                        with_respect_to_id: v.id,
+                        value: if v.value > 0.0 {
                             1.0
                         } else {
                             *alpha
@@ -246,10 +240,10 @@ impl AutoDiff {
 
                 ADValue {
                     id,
-                    value: if value.scalar() > 0.0 {
-                        value.scalar()
+                    value: if v.value > 0.0 {
+                        v.value
                     } else {
-                        value.scalar() * *alpha
+                        v.value * *alpha
                     },
                 }
             },
@@ -303,7 +297,7 @@ mod tests {
         let x = ad.create_variable(1.0);
         let y = ad.add(x, x);
         let dy_dx = ad.diff(y, x);
-        assert_eq!(y.scalar(), 2.0);
+        assert_eq!(y.value, 2.0);
         assert_eq!(dy_dx, 2.0);
     }
 
@@ -314,7 +308,7 @@ mod tests {
         let y = ad.mul(x, x);
         let dy_dx = ad.diff(y, x);
         assert_eq!(dy_dx, 4.0);
-        assert_eq!(y.scalar(), 4.0);
+        assert_eq!(y.value, 4.0);
     }
 
     #[test]
@@ -339,7 +333,7 @@ mod tests {
 
         assert_eq!(dz_dx, 1.0);
         assert_eq!(dz_dy, -1.0);
-        assert_eq!(z.scalar(), -1.0);
+        assert_eq!(z.value, -1.0);
     }
 
     #[test]
@@ -353,7 +347,7 @@ mod tests {
 
         assert_eq!(dz_dx, 2.0);
         assert_eq!(dz_dy, 3.0);
-        assert_eq!(z.scalar(), 6.0);
+        assert_eq!(z.value, 6.0);
     }
 
     #[test]
@@ -367,7 +361,7 @@ mod tests {
 
         assert_eq!(dz_dx, 0.5);
         assert_eq!(dz_dy, -0.25);
-        assert_eq!(z.scalar(), 0.5);
+        assert_eq!(z.value, 0.5);
     }
 
     #[test]

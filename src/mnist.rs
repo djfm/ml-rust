@@ -3,6 +3,9 @@ use std::io::BufReader;
 use std::io::Read;
 use std::io::Seek;
 
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+
 use super::ff_network::{
     Network,
     ClassificationExample,
@@ -17,9 +20,18 @@ use super::graphics::{
     show_mnist_image,
 };
 
+#[derive(Hash)]
 pub struct Image {
     pub pixels: Vec<u8>,
     pub label: u8,
+}
+
+impl Image {
+    pub fn calculate_hash(&self) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        self.hash(&mut hasher);
+        hasher.finish()
+    }
 }
 
 impl ClassificationExample for Image {
@@ -163,16 +175,19 @@ pub fn train() {
     network
         .add_layer(
             28 * 28,
+            false,
             None,
             None
         )
         .add_layer(
             32,
+            true,
             Some(NeuronActivation::LeakyReLU(0.01)),
             None
         )
         .add_layer(
             10,
+            false,
             None,
             Some(LayerActivation::SoftMax),
         )
@@ -193,6 +208,7 @@ pub fn train() {
 
     for epoch in 1..=epochs {
         for (i, image) in training.iter().enumerate() {
+            println!("\nprocessing image {} with hash {}", i, image.calculate_hash());
             let error = network.compute_example_error(image);
             batch_error = network.autodiff().add(batch_error, error);
             current_batch_size += 1;
@@ -206,7 +222,7 @@ pub fn train() {
                     "batch {} of epoch {} trained, error: {:.4}",
                     batch_number,
                     epoch,
-                    100.0 * batch_error.scalar(),
+                    100.0 * batch_error.value,
                 );
 
                 batch_error = network.autodiff().create_variable(0.0);

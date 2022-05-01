@@ -15,19 +15,15 @@ pub trait ClassificationExample {
     fn get_label(&self) -> usize;
 }
 
-#[derive(Copy, Clone)]
-struct Param {
-    scalar: f32,
-    ad_value: ADValue,
-}
-
+#[derive(Debug)]
 struct Neuron {
-    bias: Option<Param>,
-    weights: Vec<Param>,
+    bias: Option<ADValue>,
+    weights: Vec<ADValue>,
     activation: Option<NeuronActivation>,
     ad_value: ADValue,
 }
 
+#[derive(Debug)]
 struct FFLayer {
     neurons: Vec<Neuron>,
     activation: Option<LayerActivation>,
@@ -39,12 +35,13 @@ impl FFLayer {
     }
 
     fn from_vec(&mut self, input: &Vec<ADValue>) {
-        for (n, i) in self.neurons.iter_mut().zip(input.iter()) {
-            n.ad_value = *i;
+        for (n, &i) in self.neurons.iter_mut().zip(input.iter()) {
+            n.ad_value = i;
         }
     }
 }
 
+#[derive(Debug)]
 pub struct Network {
     autodiff: AutoDiff,
     layers: Vec<FFLayer>,
@@ -62,16 +59,10 @@ impl Network {
         &mut self.autodiff
     }
 
-    fn create_param(&mut self, value: f32) -> Param {
-        Param {
-            ad_value: self.autodiff.create_variable(value),
-            scalar: value,
-        }
-    }
-
     pub fn add_layer(
         &mut self,
         neurons_count: usize,
+        use_bias: bool,
         neuron_activation: Option<NeuronActivation>,
         layer_activation: Option<LayerActivation>,
     ) -> &mut Network {
@@ -98,14 +89,14 @@ impl Network {
                 }
             }
 
-            let weights = weights_f32.iter().map(|w| self.create_param(*w)).collect();
+            let weights = weights_f32.iter().map(|w| self.autodiff.create_variable(*w)).collect();
 
             let neuron = Neuron {
                 weights,
-                bias: if self.layers.len() == 0 {
-                    None
+                bias: if use_bias {
+                    Some(self.autodiff.create_variable(rng.gen()))
                 } else {
-                    Some(self.create_param(rng.gen()))
+                    None
                 },
                 activation: neuron_activation,
                 ad_value: self.autodiff.create_variable(0.0),
@@ -134,14 +125,14 @@ impl Network {
 
             for neuron in layer.neurons.iter_mut() {
                 neuron.ad_value = if let Some(bias) = neuron.bias {
-                    bias.ad_value
+                    bias
                 } else {
                     self.autodiff.create_variable(0.0)
                 };
 
-                for (w, connected_neuron) in neuron.weights.iter().zip(prev_layer.neurons.iter()) {
+                for (&weight, connected_neuron) in neuron.weights.iter().zip(prev_layer.neurons.iter()) {
                     let contrib = self.autodiff.mul(
-                        w.ad_value,
+                        weight,
                         connected_neuron.ad_value,
                     );
 
@@ -159,6 +150,8 @@ impl Network {
                 }
             }
 
+            println!("{:?}", layer.neurons.iter().map(|v| v.ad_value.value).collect::<Vec<_>>());
+
             if let Some(activation) = layer.activation {
                 let activated = self.autodiff.apply_layer_activation(
                     &layer.to_vec(),
@@ -169,7 +162,9 @@ impl Network {
             }
         }
 
-        self.layers.last().unwrap().to_vec()
+        let last = self.layers.last().unwrap().to_vec();
+        println!("{:?}", last.iter().map(|v| v.value).collect::<Vec<f32>>());
+        last
     }
 
     pub fn compute_example_error(&mut self, input: &dyn ClassificationExample) -> ADValue {
@@ -191,17 +186,17 @@ impl Network {
                 for weight in neuron.weights.iter_mut() {
                     let error_contrib = self.autodiff.diff(
                         error,
-                        weight.ad_value,
+                        *weight,
                     );
-                    weight.scalar -= learning_rate * error_contrib;
+                    weight.value -= learning_rate * error_contrib;
                 }
 
                 if let Some(mut bias) = neuron.bias {
                     let error_contrib = self.autodiff.diff(
                         error,
-                        bias.ad_value,
+                        bias,
                     );
-                    bias.scalar -= learning_rate * error_contrib;
+                    bias.value -= learning_rate * error_contrib;
                 }
             }
         }
@@ -214,13 +209,66 @@ impl Network {
             let layer = &mut self.layers[l];
             for neuron in layer.neurons.iter_mut() {
                 for weight in neuron.weights.iter_mut() {
-                    weight.ad_value = self.autodiff.create_variable(weight.scalar);
+                    *weight = self.autodiff.create_variable(weight.value);
                 }
 
                 if let Some(mut bias) = neuron.bias {
-                    bias.ad_value = self.autodiff.create_variable(bias.scalar);
+                    bias = self.autodiff.create_variable(bias.value);
                 }
             }
         }
     }
+}
+
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_forward_prop() {
+        struct XORExample {
+            x: f32,
+            y: f32,
+        }
+
+        impl XORExample {
+            fn new() -> Self {
+                let mut rng = rand::thread_rng();
+
+                XORExample {
+                    x: rng.gen(),
+                    y: rng.gen(),
+                }
+            }
+        }
+
+        impl ClassificationExample for XORExample {
+            fn get_input(&self) -> Vec<f32> {
+                vec![self.x, self.y]
+            }
+
+            fn get_label(&self) -> usize {
+                let (x, y): (bool, bool) = (self.x > 0.9, self.y > 0.9);
+                if x && y {
+                    0
+                } else if x || y {
+                    1
+                } else {
+                    0
+                }
+            }
+        }
+
+        let mut network = Network::new();
+        network
+            .add_layer(2, false, None, None)
+            .add_layer(2, false, Some(NeuronActivation::LeakyReLU(0.01)), None)
+            .add_layer(1, false, Some(NeuronActivation::LeakyReLU(0.01)), None)
+        ;
+
+        let a = network.feed_forward(&XORExample::new());
+        let b = network.feed_forward(&XORExample::new());
+
+        assert_ne!(a[0].value, b[0].value);
+    }
+
 }
