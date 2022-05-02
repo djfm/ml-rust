@@ -10,6 +10,12 @@ use super::autodiff::{
     ADValue,
 };
 
+use super::math::{
+    apply_neuron_activation_f32,
+    apply_layer_activation_f32,
+    index_of_max_value,
+};
+
 pub trait ClassificationExample {
     fn get_input(&self) -> Vec<f32>;
     fn get_label(&self) -> usize;
@@ -173,7 +179,7 @@ impl Network {
         for l in 1..self.layers.len() {
             let layer = &self.layers[l];
 
-            let new_activations: Vec<_> = layer.neurons.iter().map(|n| {
+            let mut new_activations: Vec<_> = layer.neurons.iter().map(|n| {
                 let mut activation = if let Some(bias) = n.bias {
                     bias.value
                 } else {
@@ -184,22 +190,20 @@ impl Network {
                     acc + weight.value * input_value
                 });
 
+                if let Some(fun) = n.activation {
+                    activation = apply_neuron_activation_f32(activation, &fun);
+                }
                 activation
             }).collect();
+
+            if let Some(fun) = layer.activation {
+                new_activations = apply_layer_activation_f32(&new_activations, &fun);
+            }
 
             activations = new_activations;
         }
 
-        let mut max_activation = activations[0];
-        let mut max_activation_index = 0;
-        for (i, &activation) in activations.iter().skip(1).enumerate() {
-            if activation > max_activation {
-                max_activation = activation;
-                max_activation_index = i;
-            }
-        }
-
-        max_activation_index
+        index_of_max_value(&activations)
     }
 
     pub fn compute_example_error(&mut self, input: &dyn ClassificationExample) -> ADValue {

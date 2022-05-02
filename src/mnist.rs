@@ -225,6 +225,8 @@ pub fn train() {
 
     let training = load_training_set().unwrap();
     println!("Loaded {} MNIST training samples", training.len());
+    let testing = load_testing_set().unwrap();
+    println!("Loaded {} MNIST testing samples", testing.len());
 
     // Training params
     let batch_size = 32;
@@ -259,20 +261,18 @@ pub fn train() {
                 batch_number += 1;
             }
         }
+
+        println!("Epoch {} done, testing...", epoch);
+        let accuracy = network.compute_accuracy(&testing);
+        println!("Accuracy: {:.2}%\n", accuracy);
     }
 
     println!("Training complete! (in {})", human_duration(start_instant.elapsed()));
-    println!("Testing...");
-    let testing = load_testing_set().unwrap();
-    let accuracy = network.compute_accuracy(&testing);
-    println!("Accuracy: {:.2}%", accuracy);
+
 }
 
 mod tests {
-    use super::{
-        human_duration,
-        Duration,
-    };
+    use super::*;
 
     #[test]
     fn test_human_duration() {
