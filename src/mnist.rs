@@ -310,6 +310,7 @@ pub fn train_parallel() {
     // Utility variables
     let mut image_pos = 0;
     let mut epoch = 0;
+    let total_single_passes = epochs * training.len();
 
     while epoch < epochs {
         thread::scope(|s| {
@@ -317,6 +318,10 @@ pub fn train_parallel() {
 
             for _ in 0..n_threads {
                 let batch: Vec<&Image> = training.iter().skip(image_pos).take(batch_size).collect();
+
+                if batch.len() == 0 {
+                    break;
+                }
 
                 image_pos += batch.len();
 
@@ -340,10 +345,10 @@ pub fn train_parallel() {
                     Ok(BatchResult { error, mut net }) => {
                         net.back_propagate(error, learning_rate);
                         networks.push(net);
-                        println!("Batch error: {:.2}%", 100.0 * error.value);
+                        println!("batch error: {:.2}%", 100.0 * error.value);
                     },
                     Err(e) => {
-                        println!("Could not compute batch error: {:?}", e);
+                        panic!("Could not compute batch error: {:?}", e);
                     }
                 }
             }
@@ -351,7 +356,11 @@ pub fn train_parallel() {
             network.average(&networks);
         }).unwrap();
 
-        println!("trained on {} images so far...", image_pos);
+        println!(
+            "trained on {} images so far, {:.2}%...",
+            image_pos,
+            100.0 * image_pos as f32 / total_single_passes as f32
+        );
 
         if image_pos >= training.len() - 1 {
             println!("Training of epoch {} done, now testing...", epoch);

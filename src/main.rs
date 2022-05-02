@@ -4,6 +4,7 @@ mod mnist;
 mod activations;
 mod graphics;
 mod math;
+mod ad;
 
 fn main() {
     // mnist::train();

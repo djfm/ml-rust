@@ -282,7 +282,7 @@ impl Network {
     pub fn average(&mut self, nets: &Vec<Network>) {
         for l in 0..self.layers.len() {
             let layer = &mut self.layers[l];
-            for (n, neuron) in layer.neurons.iter_mut().enumerate() {
+            layer.neurons.par_iter_mut().enumerate().for_each(|(n, neuron)| {
                 for (w, weight) in neuron.weights.iter_mut().enumerate() {
                     let mut sum = 0.0;
                     for net in nets.iter() {
@@ -298,7 +298,7 @@ impl Network {
                     }
                     bias.value = sum / nets.len() as f32;
                 }
-            }
+            });
         }
     }
 
