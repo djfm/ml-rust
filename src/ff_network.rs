@@ -61,6 +61,10 @@ impl Network {
         }
     }
 
+    pub fn depth(&self) -> usize {
+        self.layers.len()
+    }
+
     pub fn autodiff(&mut self) -> &mut AutoDiff {
         &mut self.autodiff
     }

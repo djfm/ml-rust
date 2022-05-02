@@ -223,6 +223,12 @@ pub fn train() {
         )
     ;
 
+    println!(
+        "Created a network with {} layers totalling {} parameters",
+        network.depth(),
+        network.autodiff().size()
+    );
+
     let training = load_training_set().unwrap();
     println!("Loaded {} MNIST training samples", training.len());
     let testing = load_testing_set().unwrap();
@@ -245,12 +251,12 @@ pub fn train() {
             current_batch_size += 1;
 
             if current_batch_size >= batch_size || i >= training.len() - 1 {
-                let size = network.autodiff().create_variable(current_batch_size as f32);
+                let size = network.autodiff().create_constant(current_batch_size as f32);
                 batch_error = network.autodiff().div(batch_error, size);
                 network.back_propagate(batch_error, learning_rate);
 
                 println!(
-                    "batch {} of epoch {} trained, error: {:.4}",
+                    "batch {} of epoch {} trained, error: {:.2}%",
                     batch_number,
                     epoch,
                     100.0 * batch_error.value,
@@ -262,11 +268,9 @@ pub fn train() {
             }
         }
 
-        println!("Epoch {} done, testing...", epoch);
+        println!("Training of epoch {} done, now testing...", epoch);
         let testing_accuracy = network.compute_accuracy(&testing);
         println!("Accuracy on testing set: {:.2}%", testing_accuracy);
-        let training_accuracy = network.compute_accuracy(&training);
-        println!("Accuracy on training set: {:.2}%\n", training_accuracy);
 
         batch_number = 0;
     }

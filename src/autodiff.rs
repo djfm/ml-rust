@@ -55,7 +55,7 @@ pub struct AutoDiff {
     gradients: HashMap<usize, Vec<f32>>,
 }
 
-impl AutoDiff {
+impl <'a> AutoDiff {
     pub fn new() -> AutoDiff {
         AutoDiff {
             tape: Tape::new(),
@@ -63,12 +63,16 @@ impl AutoDiff {
         }
     }
 
+    pub fn size(&self) -> usize {
+        self.tape.len()
+    }
+
     pub fn reset(&mut self) {
         self.tape = Tape::new();
         self.gradients.clear();
     }
 
-    pub fn create_variable(&mut self, value: f32) -> ADValue {
+    pub fn create_variable(&'a mut self, value: f32) -> ADValue {
         let id = Some(self.tape.len());
         self.tape.records.push(TapeRecord {
             partials: Vec::new(),
@@ -79,7 +83,7 @@ impl AutoDiff {
         }
     }
 
-    pub fn create_constant(&self, value: f32) -> ADValue {
+    pub fn create_constant(&'a self, value: f32) -> ADValue {
         ADValue {
             id: None,
             value,
@@ -96,8 +100,15 @@ impl AutoDiff {
 
         dy[y_id] = 1.0;
         for i in (0..y_id+1).rev() {
-            for record in &self.tape.records[i].partials {
-                dy[record.with_respect_to_id] += dy[i] * record.value;
+            match self.tape.records.get(i) {
+                Some(record) => {
+                    for partial in &record.partials {
+                        dy[partial.with_respect_to_id] += partial.value * dy[i];
+                    }
+                },
+                None => {
+                    panic!("partial derivative of expression not found on tape");
+                },
             }
         }
 
