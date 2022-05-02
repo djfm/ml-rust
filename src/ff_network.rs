@@ -193,6 +193,7 @@ impl Network {
                 if let Some(fun) = n.activation {
                     activation = apply_neuron_activation_f32(activation, &fun);
                 }
+
                 activation
             }).collect();
 
@@ -208,8 +209,8 @@ impl Network {
 
     pub fn compute_example_error(&mut self, input: &dyn ClassificationExample) -> ADValue {
         let output = self.feed_forward(input);
-        let mut expected = vec![self.autodiff.create_variable(0.0); output.len()];
-        expected[input.get_label()] = self.autodiff.create_variable(1.0);
+        let mut expected = vec![self.autodiff.create_constant(0.0); output.len()];
+        expected[input.get_label()] = self.autodiff.create_constant(1.0);
 
         self.autodiff.euclidean_distance_squared(
             &output,

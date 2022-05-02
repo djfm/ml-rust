@@ -267,6 +267,8 @@ pub fn train() {
         println!("Accuracy on testing set: {:.2}%", testing_accuracy);
         let training_accuracy = network.compute_accuracy(&training);
         println!("Accuracy on training set: {:.2}%\n", training_accuracy);
+
+        batch_number = 0;
     }
 
     println!("Training complete! (in {})", human_duration(start_instant.elapsed()));

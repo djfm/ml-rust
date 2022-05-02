@@ -39,7 +39,7 @@ pub fn index_of_max_value(values: &Vec<f32>) -> usize {
     let mut max_index = 0;
     let mut max_value = values[0];
 
-    for (i, &v) in values.iter().skip(1).enumerate() {
+    for (i, &v) in values.iter().enumerate() {
         if v > max_value {
             max_index = i;
             max_value = v;
@@ -47,4 +47,14 @@ pub fn index_of_max_value(values: &Vec<f32>) -> usize {
     }
 
     max_index
+}
+
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_index_of_max_value() {
+        let values = vec![0.0, 1.0, 2.0, 3.0, 4.0];
+        assert_eq!(index_of_max_value(&values), 4);
+    }
 }
