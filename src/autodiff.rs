@@ -7,8 +7,18 @@ use super::activations::{
 
 #[derive(Copy, Clone, Debug)]
 pub struct ADValue {
-    id: usize,
+    id: Option<usize>,
     pub value: f32,
+}
+
+impl ADValue {
+    pub fn is_constant(&self) -> bool {
+        self.id.is_none()
+    }
+
+    pub fn is_variable(&self) -> bool {
+        self.id.is_some()
+    }
 }
 
 #[derive(Debug)]
@@ -59,7 +69,7 @@ impl AutoDiff {
     }
 
     pub fn create_variable(&mut self, value: f32) -> ADValue {
-        let id = self.tape.len();
+        let id = Some(self.tape.len());
         self.tape.records.push(TapeRecord {
             partials: Vec::new(),
         });
@@ -69,68 +79,74 @@ impl AutoDiff {
         }
     }
 
-    fn compute_gradient(&mut self, y: ADValue) {
-        let mut dy = vec![0.0; y.id + 1];
+    pub fn create_constant(&self, value: f32) -> ADValue {
+        ADValue {
+            id: None,
+            value,
+        }
+    }
 
-        dy[y.id] = 1.0;
-        for i in (0..y.id+1).rev() {
+    fn compute_gradient(&mut self, y: ADValue) {
+        if y.is_constant() {
+            panic!("cannot compute gradient of a constant value");
+        }
+
+        let y_id = y.id.unwrap();
+        let mut dy = vec![0.0; y_id + 1];
+
+        dy[y_id] = 1.0;
+        for i in (0..y_id+1).rev() {
             for record in &self.tape.records[i].partials {
                 dy[record.with_respect_to_id] += dy[i] * record.value;
             }
         }
 
-        self.gradients.insert(y.id, dy);
+        self.gradients.insert(y_id, dy);
     }
 
     pub fn diff(&mut self, y: ADValue, wrt: ADValue) -> f32 {
-        match self.gradients.get(&y.id) {
-            Some(dy) => dy[wrt.id],
+        if y.is_constant() {
+            panic!("cannot compute gradient of a constant value");
+        }
+
+        if wrt.is_constant() {
+            panic!("cannot compute gradient with respect to a constant value");
+        }
+
+        let y_id = y.id.unwrap();
+        let wrt_id = wrt.id.unwrap();
+
+        match self.gradients.get(&y_id) {
+            Some(dy) => dy[wrt_id],
             None => {
                 self.compute_gradient(y);
-                self.gradients[&y.id][wrt.id]
+                self.gradients[&y_id][wrt_id]
             }
-        }
-    }
-
-    pub fn add_many(&mut self, values: &Vec<ADValue>) -> ADValue {
-        let id = self.tape.len();
-
-        let partials = values.iter().map(|value| {
-            PartialDiff {
-                with_respect_to_id: value.id,
-                value: 1.0,
-            }
-        }).collect();
-
-        self.tape.records.push(TapeRecord {
-            partials,
-        });
-
-        ADValue {
-            id,
-            value: values.iter().map(|v| v.value).sum(),
         }
     }
 
     pub fn add(&mut self, left: ADValue, right: ADValue) -> ADValue {
-        self.add_many(&vec![left, right])
-    }
+        if left.is_constant() && right.is_constant() {
+            return self.create_constant(left.value + right.value);
+        }
 
-    pub fn mul_many(&mut self, values: &Vec<ADValue>) -> ADValue {
-        let id = self.tape.len();
+        let id = Some(self.tape.len());
 
-        let partials = values.iter().enumerate().map(|(i, value)| {
-            PartialDiff {
-                with_respect_to_id: value.id,
-                value: values.iter().enumerate().map(|(j, v)| {
-                    if i == j {
-                        1.0
-                    } else {
-                        v.value
-                    }
-                }).product(),
-            }
-        }).collect();
+        let mut partials = Vec::new();
+
+        if left.is_variable() {
+            partials.push(PartialDiff {
+                with_respect_to_id: left.id.unwrap(),
+                value: 1.0,
+            });
+        }
+
+        if right.is_variable() {
+            partials.push(PartialDiff {
+                with_respect_to_id: right.id.unwrap(),
+                value: 1.0,
+            });
+        }
 
         self.tape.records.push(TapeRecord {
             partials,
@@ -138,27 +154,98 @@ impl AutoDiff {
 
         ADValue {
             id,
-            value: values.iter().map(|v| v.value).product(),
+            value: left.value + right.value,
+        }
+    }
+
+    pub fn sub(&mut self, left: ADValue, right: ADValue) -> ADValue {
+        if left.is_constant() && right.is_constant() {
+            return self.create_constant(left.value - right.value);
+        }
+
+        let id = Some(self.tape.len());
+
+        let mut partials = Vec::new();
+
+        if left.is_variable() {
+            partials.push(PartialDiff {
+                with_respect_to_id: left.id.unwrap(),
+                value: 1.0,
+            });
+        }
+
+        if right.is_variable() {
+            partials.push(PartialDiff {
+                with_respect_to_id: right.id.unwrap(),
+                value: -1.0,
+            });
+        }
+
+        self.tape.records.push(TapeRecord {
+            partials,
+        });
+
+        ADValue {
+            id,
+            value: left.value - right.value,
         }
     }
 
     pub fn mul(&mut self, left: ADValue, right: ADValue) -> ADValue {
-        self.mul_many(&vec![left, right])
+        if left.is_constant() && right.is_constant() {
+            return self.create_constant(left.value * right.value);
+        }
+
+        let id = Some(self.tape.len());
+
+        let mut partials = Vec::new();
+
+        if left.is_variable() {
+            partials.push(PartialDiff {
+                with_respect_to_id: left.id.unwrap(),
+                value: right.value,
+            });
+        }
+
+        if right.is_variable() {
+            partials.push(PartialDiff {
+                with_respect_to_id: right.id.unwrap(),
+                value: left.value,
+            });
+        }
+
+        self.tape.records.push(TapeRecord {
+            partials,
+        });
+
+        ADValue {
+            id,
+            value: left.value * right.value,
+        }
     }
 
     pub fn div(&mut self, left: ADValue, right: ADValue) -> ADValue {
-        let id = self.tape.len();
+        if left.is_constant() && right.is_constant() {
+            return self.create_constant(left.value / right.value);
+        }
 
-        let partials = vec![
-        PartialDiff {
-            with_respect_to_id: left.id,
-            value: 1.0 / right.value,
-        },
-        PartialDiff {
-            with_respect_to_id: right.id,
-            value: -left.value / right.value.powi(2),
-        },
-        ];
+        let id = Some(self.tape.len());
+
+        let mut partials = Vec::new();
+
+        if left.is_variable() {
+            partials.push(PartialDiff {
+                with_respect_to_id: left.id.unwrap(),
+                value: 1.0 / right.value,
+            });
+        }
+
+        if right.is_variable() {
+            partials.push(PartialDiff {
+                with_respect_to_id: right.id.unwrap(),
+                value: -left.value / right.value.powi(2),
+            });
+        }
 
         self.tape.records.push(TapeRecord {
             partials,
@@ -170,47 +257,22 @@ impl AutoDiff {
         }
     }
 
-    pub fn sub_many(&mut self, values: &Vec<ADValue>) -> ADValue {
-        let id = self.tape.len();
-
-        let partials = values.iter().enumerate().map(|(i, value)| {
-            PartialDiff {
-                with_respect_to_id: value.id,
-                value: if i == 0 { 1.0 } else { -1.0 },
-            }
-        }).collect();
-
-        self.tape.records.push(TapeRecord {
-            partials,
-        });
-
-        ADValue {
-            id,
-            value: values.iter().enumerate().map(
-                |(i, v)| if i == 0 { v.value } else { -v.value }
-            ).sum(),
-        }
-    }
-
-    pub fn sub(&mut self, left: ADValue, right: ADValue) -> ADValue {
-        self.sub_many(&vec![left, right])
-    }
-
     pub fn exp(&mut self, v: ADValue) -> ADValue {
+        let id = if v.is_variable() { Some(self.tape.len()) } else { None };
         let exp = v.value.exp();
 
-        let id = self.tape.len();
+        let mut partials = Vec::new();
 
-        let partials = vec![
-        PartialDiff {
-            with_respect_to_id: v.id,
-            value: exp,
+        if v.is_variable() {
+            partials.push(PartialDiff {
+                with_respect_to_id: v.id.unwrap(),
+                value: exp,
+            });
+
+            self.tape.records.push(TapeRecord {
+                partials,
+            });
         }
-        ];
-
-        self.tape.records.push(TapeRecord {
-            partials,
-        });
 
         ADValue {
             id,
@@ -221,11 +283,11 @@ impl AutoDiff {
     pub fn apply_neuron_activation(&mut self, v: ADValue, activation: &NeuronActivation) -> ADValue {
         match activation {
             NeuronActivation::LeakyReLU(alpha) => {
-                let id = self.tape.len();
+                let id = Some(self.tape.len());
 
                 let partials = vec![
                     PartialDiff {
-                        with_respect_to_id: v.id,
+                        with_respect_to_id: v.id.unwrap(),
                         value: if v.value > 0.0 {
                             1.0
                         } else {
@@ -316,7 +378,8 @@ mod tests {
         let mut ad = AutoDiff::new();
         let x = ad.create_variable(2.0);
         let y = ad.create_variable(3.0);
-        let z = ad.mul_many(&vec![x, x, y]);
+        let pz = ad.mul(x, x);
+        let z = ad.mul(y, pz);
 
         assert_eq!(ad.diff(z, x), 12.0);
         assert_eq!(ad.diff(z, y), 4.0);
@@ -380,7 +443,7 @@ mod tests {
         let x = ad.create_variable(3.0);
         let y = ad.create_variable(4.0);
         let exp_x = ad.exp(x);
-        let exp_x_minus_y = ad.sub_many(&vec![exp_x, y]);
+        let exp_x_minus_y = ad.sub(exp_x, y);
         let o = ad.div(y, exp_x_minus_y);
 
         assert_eq!(ad.diff(o, x), -0.310507656);

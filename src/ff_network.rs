@@ -105,7 +105,7 @@ impl Network {
                     None
                 },
                 activation: neuron_activation,
-                ad_value: self.autodiff.create_variable(0.0),
+                ad_value: self.autodiff.create_constant(0.0),
             };
             layer.neurons.push(neuron);
         }
@@ -121,7 +121,7 @@ impl Network {
         }
 
         for (neuron, &input_value) in self.layers[0].neurons.iter_mut().zip(input_vec.iter()) {
-            neuron.ad_value = self.autodiff.create_variable(input_value);
+            neuron.ad_value = self.autodiff.create_constant(input_value);
         }
 
         for l in 1..self.layers.len() {
@@ -133,7 +133,7 @@ impl Network {
                 neuron.ad_value = if let Some(bias) = neuron.bias {
                     bias
                 } else {
-                    self.autodiff.create_variable(0.0)
+                    self.autodiff.create_constant(0.0)
                 };
 
                 for (&weight, connected_neuron) in neuron.weights.iter().zip(prev_layer.neurons.iter()) {

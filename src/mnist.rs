@@ -263,8 +263,10 @@ pub fn train() {
         }
 
         println!("Epoch {} done, testing...", epoch);
-        let accuracy = network.compute_accuracy(&testing);
-        println!("Accuracy: {:.2}%\n", accuracy);
+        let testing_accuracy = network.compute_accuracy(&testing);
+        println!("Accuracy on testing set: {:.2}%", testing_accuracy);
+        let training_accuracy = network.compute_accuracy(&training);
+        println!("Accuracy on training set: {:.2}%\n", training_accuracy);
     }
 
     println!("Training complete! (in {})", human_duration(start_instant.elapsed()));
