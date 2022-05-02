@@ -6,5 +6,6 @@ mod graphics;
 mod math;
 
 fn main() {
-    mnist::train();
+    // mnist::train();
+    mnist::train_parallel();
 }

@@ -7,8 +7,10 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
 use std::time::{Instant, Duration};
+use crossbeam_utils::thread;
 
 use super::ff_network::{
+    BatchResult,
     Network,
     ClassificationExample,
 };
@@ -198,8 +200,7 @@ pub fn load_testing_set() -> Result<Vec<Image>, String> {
     )
 }
 
-pub fn train() {
-    let start_instant = Instant::now();
+pub fn create_network() -> Network {
     let mut network = Network::new();
 
     network
@@ -222,6 +223,13 @@ pub fn train() {
             Some(LayerActivation::SoftMax),
         )
     ;
+
+    network
+}
+
+pub fn train() {
+    let start_instant = Instant::now();
+    let mut network = create_network();
 
     println!(
         "Created a network with {} layers totalling {} parameters",
@@ -276,7 +284,85 @@ pub fn train() {
     }
 
     println!("Training complete! (in {})", human_duration(start_instant.elapsed()));
+}
 
+pub fn train_parallel() {
+    let start_instant = Instant::now();
+    let mut network = create_network();
+
+    println!(
+        "Created a network with {} layers totalling {} parameters",
+        network.depth(),
+        network.autodiff().size()
+    );
+
+    let training = load_training_set().unwrap();
+    println!("Loaded {} MNIST training samples", training.len());
+    let testing = load_testing_set().unwrap();
+    println!("Loaded {} MNIST testing samples", testing.len());
+
+    // Training params
+    let batch_size = 32;
+    let learning_rate = 0.01;
+    let epochs = 5;
+    let n_threads = num_cpus::get();
+
+    // Utility variables
+    let mut image_pos = 0;
+    let mut epoch = 0;
+
+    while epoch < epochs {
+        thread::scope(|s| {
+            let mut thread_handles = Vec::new();
+
+            for _ in 0..n_threads {
+                let batch: Vec<&Image> = training.iter().skip(image_pos).take(batch_size).collect();
+
+                image_pos += batch.len();
+
+                let mut res = BatchResult {
+                    error: network.autodiff().create_variable(0.0),
+                    net: network.clone(),
+                };
+
+                thread_handles.push(
+                    s.spawn(move |_| {
+                        res.error = res.net.compute_batch_error(&batch);
+                        res
+                    })
+                );
+            }
+
+            let mut networks = Vec::new();
+
+            for h in thread_handles {
+                match h.join() {
+                    Ok(BatchResult { error, mut net }) => {
+                        net.back_propagate(error, learning_rate);
+                        networks.push(net);
+                        println!("Batch error: {:.2}%", 100.0 * error.value);
+                    },
+                    Err(e) => {
+                        println!("Could not compute batch error: {:?}", e);
+                    }
+                }
+            }
+
+            network.average(&networks);
+        }).unwrap();
+
+        println!("trained on {} images so far...", image_pos);
+
+        if image_pos >= training.len() - 1 {
+            println!("Training of epoch {} done, now testing...", epoch);
+            let testing_accuracy = network.compute_accuracy(&testing);
+            println!("Accuracy on testing set: {:.2}%", testing_accuracy);
+            image_pos = 0;
+            epoch += 1;
+        }
+    }
+
+    println!("Training complete! (in {})", human_duration(start_instant.elapsed()));
 }
 
 mod tests {
@@ -287,5 +373,13 @@ mod tests {
         assert_eq!(human_duration(Duration::new(0, 0)), "0s");
         assert_eq!(human_duration(Duration::new(61, 0)), "1m 1s");
         assert_eq!(human_duration(Duration::new(3610, 0)), "1h 10s");
+    }
+
+    fn test_ref() {
+        let vi: Vec<bool> = Vec::new();
+        let mut batches = vec![vi; 4];
+        batches[0] = vec![false];
+        batches[1] = vec![true, true];
+        assert_ne!(batches[0], batches[1]);
     }
 }

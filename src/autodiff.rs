@@ -21,18 +21,30 @@ impl ADValue {
     }
 }
 
-#[derive(Debug)]
+impl std::cmp::PartialEq for ADValue {
+    fn eq(&self, other: &ADValue) -> bool {
+        self.value == other.value
+    }
+}
+
+impl std::cmp::PartialOrd for ADValue {
+    fn partial_cmp(&self, other: &ADValue) -> Option<std::cmp::Ordering> {
+        self.value.partial_cmp(&other.value)
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
 struct PartialDiff {
     with_respect_to_id: usize,
     value: f32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct TapeRecord {
     partials: Vec<PartialDiff>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Tape {
     records: Vec<TapeRecord>,
 }
@@ -55,7 +67,16 @@ pub struct AutoDiff {
     gradients: HashMap<usize, Vec<f32>>,
 }
 
-impl <'a> AutoDiff {
+impl Clone for AutoDiff {
+    fn clone(&self) -> AutoDiff {
+        AutoDiff {
+            tape: self.tape.clone(),
+            gradients: self.gradients.clone(),
+        }
+    }
+}
+
+impl AutoDiff {
     pub fn new() -> AutoDiff {
         AutoDiff {
             tape: Tape::new(),
@@ -72,7 +93,7 @@ impl <'a> AutoDiff {
         self.gradients.clear();
     }
 
-    pub fn create_variable(&'a mut self, value: f32) -> ADValue {
+    pub fn create_variable(&mut self, value: f32) -> ADValue {
         let id = Some(self.tape.len());
         self.tape.records.push(TapeRecord {
             partials: Vec::new(),
@@ -83,7 +104,7 @@ impl <'a> AutoDiff {
         }
     }
 
-    pub fn create_constant(&'a self, value: f32) -> ADValue {
+    pub fn create_constant(&self, value: f32) -> ADValue {
         ADValue {
             id: None,
             value,

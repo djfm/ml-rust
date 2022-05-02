@@ -35,11 +35,11 @@ pub fn apply_layer_activation_f32(values: &Vec<f32>, activation: &LayerActivatio
     }
 }
 
-pub fn index_of_max_value(values: &Vec<f32>) -> usize {
+pub fn index_of_max_value<T: std::cmp::PartialOrd>(values: &Vec<T>) -> usize {
     let mut max_index = 0;
-    let mut max_value = values[0];
+    let mut max_value = &values[0];
 
-    for (i, &v) in values.iter().enumerate() {
+    for (i, v) in values.iter().enumerate() {
         if v > max_value {
             max_index = i;
             max_value = v;

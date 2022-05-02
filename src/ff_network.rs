@@ -1,4 +1,5 @@
 use rand::prelude::*;
+use rayon::prelude::*;
 
 use super::activations::{
     NeuronActivation,
@@ -21,7 +22,7 @@ pub trait ClassificationExample {
     fn get_label(&self) -> usize;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Neuron {
     bias: Option<ADValue>,
     weights: Vec<ADValue>,
@@ -29,7 +30,7 @@ struct Neuron {
     ad_value: ADValue,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct FFLayer {
     neurons: Vec<Neuron>,
     activation: Option<LayerActivation>,
@@ -47,10 +48,15 @@ impl FFLayer {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Network {
     autodiff: AutoDiff,
     layers: Vec<FFLayer>,
+}
+
+pub struct BatchResult {
+    pub net: Network,
+    pub error: ADValue,
 }
 
 impl Network {
@@ -173,6 +179,20 @@ impl Network {
         self.layers.last().unwrap().to_vec()
     }
 
+    pub fn compute_batch_error<T: ClassificationExample>(&mut self, examples: &Vec<&T>) -> ADValue {
+        let mut batch_error = self.autodiff.create_constant(0.0);
+
+        for example in examples.iter() {
+            let output = self.feed_forward(*example);
+            let mut one_hot = vec![self.autodiff.create_constant(0.0); output.len()];
+            one_hot[example.get_label()] = self.autodiff.create_constant(1.0);
+            let error = self.autodiff().euclidean_distance_squared(&output, &one_hot);
+            batch_error = self.autodiff.add(batch_error, error);
+        }
+
+        self.autodiff.div(batch_error, self.autodiff.create_constant(examples.len() as f32))
+    }
+
     pub fn predict(&self, input: &dyn ClassificationExample) -> usize {
         let mut activations = input.get_input();
 
@@ -256,6 +276,33 @@ impl Network {
             }
         }
 
+        self.reset();
+    }
+
+    pub fn average(&mut self, nets: &Vec<Network>) {
+        for l in 0..self.layers.len() {
+            let layer = &mut self.layers[l];
+            for (n, neuron) in layer.neurons.iter_mut().enumerate() {
+                for (w, weight) in neuron.weights.iter_mut().enumerate() {
+                    let mut sum = 0.0;
+                    for net in nets.iter() {
+                        sum += net.layers[l].neurons[n].weights[w].value;
+                    }
+                    weight.value = sum / nets.len() as f32;
+                }
+
+                if let Some(mut bias) = neuron.bias {
+                    let mut sum = 0.0;
+                    for net in nets.iter() {
+                        sum += net.layers[l].neurons[n].bias.unwrap().value;
+                    }
+                    bias.value = sum / nets.len() as f32;
+                }
+            }
+        }
+    }
+
+    pub fn reset(&mut self) {
         // Avoid explosion of the number of tracked variables
         self.autodiff.reset();
 
