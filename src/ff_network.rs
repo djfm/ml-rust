@@ -231,6 +231,17 @@ impl Network {
         index_of_max_value(&activations)
     }
 
+    pub fn compute_example_error(&mut self, input: &dyn ClassificationExample) -> ADValue {
+        let output = self.feed_forward(input);
+        let mut expected = vec![self.autodiff.create_constant(0.0); output.len()];
+        expected[input.get_label()] = self.autodiff.create_constant(1.0);
+
+        self.autodiff.euclidean_distance_squared(
+            &output,
+            &expected,
+        )
+    }
+
     pub fn compute_accuracy<T: ClassificationExample>(&self, examples: &Vec<T>) -> f32 {
         let mut correct = 0.0;
         for example in examples {

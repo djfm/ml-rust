@@ -1,6 +1,8 @@
 use crate::ml::math::{
     NumberFactory,
     NumberLike,
+    LayerActivation,
+    SingleActivation,
 };
 
 pub struct Layer<
@@ -23,10 +25,10 @@ impl <
     const prev_layer_size: usize,
 > Layer<CellT, FactoryT, n_cells, prev_layer_size> {
     pub fn new(config: &layer::Config) -> Self {
-        let weights = vec![
-            FactoryT::zero();
-            n_cells * prev_layer_size
-        ];
+        let weights = (0..n_cells*prev_layer_size).map(
+            |_| FactoryT::small_rand()
+        ).collect();
+
         let biases = vec![
             FactoryT::zero();
             n_cells
@@ -46,9 +48,15 @@ impl <
 }
 
 mod layer {
+    use super::*;
+
     #[derive(Copy, Clone)]
     pub struct Config {
         pub input_size: usize,
+        pub n_cells_per_input: usize,
+        pub layer_depth: usize,
+        pub layer_activation: LayerActivation,
+        pub cell_activation: SingleActivation,
     }
 }
 

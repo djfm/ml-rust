@@ -6,11 +6,15 @@ use std::{
 
 use rand::prelude::*;
 
-use super::{
+use crate::ml::{
     ad::{AD},
     math::{
         NumberLike,
         NumberFactory,
+        SingleActivator,
+        SingleActivation,
+        LayerActivator,
+        LayerActivation,
     },
 };
 
@@ -406,5 +410,37 @@ impl <'a> ops::Div<f32> for ADNumber<'a> {
 impl <'a> ops::DivAssign<ADNumber<'a>> for ADNumber<'a> {
     fn div_assign(&mut self, other: ADNumber<'a>) {
         *self = *self / other;
+    }
+}
+
+impl <'a> SingleActivator<ADNumber<'a>, ADNumberFactory> for SingleActivation {
+    fn activate(&self, value: &ADNumber<'a>) -> ADNumber<'a> {
+        match *self {
+            SingleActivation::None => value.clone(),
+            SingleActivation::ReLu => value.relu(),
+            SingleActivation::LeakyReLU(alpha) => value.leaky_relu(
+                ADNumberFactory::one() * alpha
+            ),
+        }
+    }
+}
+
+impl <'a> LayerActivator<ADNumber<'a>, ADNumberFactory> for LayerActivation {
+    fn activate(&self, value: &[ADNumber<'a>]) -> Vec<ADNumber<'a>> {
+        match *self {
+            LayerActivation::None => value.to_vec(),
+            LayerActivation::SoftMax => {
+                let mut sum = ADNumberFactory::zero();
+                let mut result = value.to_vec();
+
+                for (i, v) in value.iter().enumerate() {
+                    let exp = v.exp();
+                    sum = sum + exp;
+                    result[i] = exp;
+                }
+
+                result.iter().map(|v| *v / sum).collect::<Vec<_>>()
+            },
+        }
     }
 }

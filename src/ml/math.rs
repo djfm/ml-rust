@@ -76,3 +76,30 @@ pub trait NumberLike<Factory> where
         Factory::zero() - self.clone()
     }
 }
+
+#[derive(Debug, Clone, Copy)]
+pub enum SingleActivation {
+    None,
+    ReLu,
+    LeakyReLU(f32),
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum LayerActivation {
+    None,
+    SoftMax,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum ErrorFunction {
+    None,
+    EuclideanDistanceSquared,
+}
+
+pub trait SingleActivator<T: NumberLike<F>, F: NumberFactory<T>> {
+    fn activate(&self, x: &T) -> T;
+}
+
+pub trait LayerActivator<T: NumberLike<F>, F: NumberFactory<T>> {
+    fn activate(&self, x: &[T]) -> Vec<T>;
+}
