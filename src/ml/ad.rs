@@ -92,7 +92,7 @@ impl AD {
         *id
     }
 
-    fn current_tape_id(&self) -> usize {
+    pub fn current_tape_id(&self) -> usize {
         if *self.max_tape_id.borrow() == 0 {
             self.next_tape_id()
         } else {
@@ -135,7 +135,7 @@ impl AD {
 
         let tape_id = self.current_tape_id();
         let mut tapes = self.tapes.borrow_mut();
-        let tape = tapes.get_mut(&tape_id).unwrap();
+        let tape = tapes.get_mut(&tape_id).expect("to find the tape");
 
         let mut rec = TapeRecord::new();
         if left.is_variable() {
