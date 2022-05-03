@@ -13,22 +13,22 @@ pub trait NumberFactory<Number>
 
 pub trait NumberLike<Factory> where
     Self:
-        Sized + Default +
+        Sized + Default + Clone +
         cmp::PartialEq + cmp::PartialOrd +
         ops::Add + ops::AddAssign +
         ops::Sub + ops::SubAssign,
     Factory: NumberFactory<Self>
 {
-    fn relu(self) -> Self {
-        if self < Factory::zero() {
+    fn relu(&self) -> Self {
+        if *self < Factory::zero() {
             Factory::zero()
         } else {
-            self
+            self.clone()
         }
     }
 
-    fn leaky_relu(self, leaking_factor: Self) -> Self {
-        if self < Factory::zero() {
+    fn leaky_relu(&self, leaking_factor: Self) -> Self {
+        if *self < Factory::zero() {
             Factory::zero()
         } else {
             leaking_factor
