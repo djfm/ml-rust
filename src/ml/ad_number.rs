@@ -82,7 +82,7 @@ impl <'a> ADNumber<'a> {
 }
 
 impl <'a> NumberLike<ADNumberFactory> for ADNumber<'a> {
-    fn exp(&self) -> Self {
+    fn exp(&self) -> ADNumber<'a> {
         let exp = self.scalar.exp();
         self.ad.expect("missing AD instance reference")
             .create_unary_composite(
@@ -294,6 +294,17 @@ impl <'a> ops::Sub<f32> for ADNumber<'a> {
 impl <'a> ops::SubAssign<ADNumber<'a>> for ADNumber<'a> {
     fn sub_assign(&mut self, other: ADNumber<'a>) {
         *self = *self + other;
+    }
+}
+
+impl <'a> ops::Neg for ADNumber<'a> {
+    type Output = ADNumber<'a>;
+
+    fn neg(self) -> ADNumber<'a> {
+        self.ad.expect("reference to AD instance is missing")
+            .create_unary_composite(
+                &self, -self.scalar, -1.0
+            )
     }
 }
 

@@ -56,7 +56,6 @@ mod tests {
         let x = ad.create_variable(2.0);
         let y = ad.create_variable(3.0);
         let o = x * x * y;
-
         assert_eq!(o.diff(&x), 12.0);
         assert_eq!(o.diff(&y), 4.0);
     }
@@ -67,8 +66,16 @@ mod tests {
         let x = ad.create_variable(3.0);
         let y = ad.create_variable(4.0);
         let o = y / (x.exp() - y);
-
         assert_eq!(o.diff(&x), -0.310507656);
         assert_eq!(o.diff(&y), 0.077626914);
+    }
+
+    #[test]
+    fn test_neg() {
+        let ad = AD::new();
+        let x = ad.create_variable(2.0);
+        let minus_x = -x;
+        assert_eq!(minus_x.scalar(), -2.0);
+        assert_eq!(minus_x.diff(&x), -1.0);
     }
 }

@@ -15,8 +15,11 @@ pub trait NumberLike<Factory> where
     Self:
         Sized + Default + Clone +
         cmp::PartialEq + cmp::PartialOrd +
-        ops::Add + ops::AddAssign +
-        ops::Sub + ops::SubAssign,
+        ops::Add<Output=Self> + ops::AddAssign +
+        ops::Sub<Output=Self> + ops::SubAssign +
+        ops::Neg<Output=Self> +
+        ops::Mul<Output=Self> + ops::MulAssign +
+        ops::Div<Output=Self> + ops::DivAssign,
     Factory: NumberFactory<Self>
 {
     fn relu(&self) -> Self {
@@ -33,6 +36,10 @@ pub trait NumberLike<Factory> where
         } else {
             leaking_factor
         }
+    }
+
+    fn sigmoid(&self) -> Self {
+        Factory::one() / (Factory::one() + -self.exp())
     }
 
     fn exp(&self) -> Self;
@@ -60,4 +67,8 @@ pub trait NumberLike<Factory> where
     fn sqrt(&self) -> Self;
     fn cbrt(&self) -> Self;
     fn abs(&self) -> Self;
+
+    fn neg(&self) -> Self {
+        Factory::zero() - self.clone()
+    }
 }
