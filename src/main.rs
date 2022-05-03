@@ -3,8 +3,8 @@ mod ff_network;
 mod mnist;
 mod activations;
 mod graphics;
+mod ml;
 mod math;
-mod ad;
 
 fn main() {
     // mnist::train();
