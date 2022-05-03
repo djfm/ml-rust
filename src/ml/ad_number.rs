@@ -1,5 +1,4 @@
 mod traits;
-mod math;
 
 use std::{
     ops,
@@ -7,11 +6,10 @@ use std::{
 
 use super::{
     ad::{AD},
-};
-
-use math::{
-    NumberLike,
-    NumberFactory,
+    math::{
+        NumberLike,
+        NumberFactory,
+    },
 };
 
 #[derive(Copy, Clone)]
