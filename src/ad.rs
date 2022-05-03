@@ -21,6 +21,20 @@ struct Tape {
     records: Vec<TapeRecord>
 }
 
+pub struct AD {
+    tapes: RefCell<HashMap<usize, Tape>>,
+    max_tape_id: RefCell<usize>,
+    gradients: RefCell<GradientsMap>,
+}
+
+#[derive(Copy, Clone)]
+pub struct ADNumber<'a> {
+    ad: Option<&'a AD>,
+    id: usize,
+    tape_id: usize,
+    scalar: f32,
+}
+
 type GradientsMap = HashMap<usize, Vec<f32>>;
 
 pub trait NumberFactory<Number>
@@ -55,22 +69,33 @@ pub trait NumberLike<Factory> where
                 leaking_factor
             }
         }
+
+        fn exp(&self) -> Self;
+        fn powi(&self, power: i32) -> Self;
+        fn powf(&self, power: f32) -> Self;
+        fn sin(&self) -> Self;
+        fn cos(&self) -> Self;
+        fn tan(&self) -> Self;
+        fn asin(&self) -> Self;
+        fn acos(&self) -> Self;
+        fn atan(&self) -> Self;
+        fn sinh(&self) -> Self;
+        fn cosh(&self) -> Self;
+        fn tanh(&self) -> Self;
+        fn asinh(&self) -> Self;
+        fn acosh(&self) -> Self;
+        fn atanh(&self) -> Self;
+        fn log(&self, base: f32) -> Self;
+        fn ln(&self) -> Self {
+            self.log(1.0f32.exp())
+        }
+        fn log10(&self) -> Self {
+            self.log(10.0f32)
+        }
+        fn sqrt(&self) -> Self;
+        fn cbrt(&self) -> Self;
+        fn abs(&self) -> Self;
     }
-
-
-pub struct AD {
-    tapes: RefCell<HashMap<usize, Tape>>,
-    max_tape_id: RefCell<usize>,
-    gradients: RefCell<GradientsMap>,
-}
-
-#[derive(Copy, Clone)]
-pub struct ADNumber<'a> {
-    ad: Option<&'a AD>,
-    id: usize,
-    tape_id: usize,
-    scalar: f32,
-}
 
 pub struct ADNumberFactory {}
 impl <'a> NumberFactory<ADNumber<'a>> for ADNumberFactory {
@@ -121,6 +146,13 @@ impl <'a> ADNumber<'a> {
         }
     }
 
+    pub fn ad(&self) -> &AD {
+        self.ad
+            .expect(
+                "ADNumber should have an AD instance reference"
+            )
+    }
+
     pub fn scalar(&self) -> f32 {
         self.scalar
     }
@@ -140,149 +172,7 @@ impl <'a> ADNumber<'a> {
             .diff(self, wrt)
     }
 
-    pub fn powi(&self, operand: i32) -> Self {
-        self.ad.expect("missing AD instance reference")
-            .create_unary_composite(
-                self, self.scalar.powi(operand),
-                self.scalar.powi(operand - 1) * operand as f32,
-            )
-    }
 
-    pub fn powf(&self, operand: f32) -> Self {
-        self.ad.expect("missing AD instance reference")
-            .create_unary_composite(
-                self, self.scalar.powf(operand),
-                self.scalar.powf(operand - 1.0) * operand,
-            )
-    }
-
-    pub fn exp(&self) -> Self {
-        let exp = self.scalar.exp();
-        self.ad.expect("missing AD instance reference")
-            .create_unary_composite(
-                self, exp, exp,
-            )
-    }
-
-    pub fn sin(&self) -> Self {
-        let sin = self.scalar.sin();
-        self.ad.expect("missing AD instance reference")
-            .create_unary_composite(
-                self, sin, self.scalar.cos(),
-            )
-    }
-
-    pub fn cos(&self) -> Self {
-        let cos = self.scalar.cos();
-        self.ad.expect("missing AD instance reference")
-            .create_unary_composite(
-                self, cos, -self.scalar.sin(),
-            )
-    }
-
-    pub fn tan(&self) -> Self {
-        let tan = self.scalar.tan();
-        self.ad.expect("missing AD instance reference")
-            .create_unary_composite(
-                self, tan, 1.0 + tan * tan,
-            )
-    }
-
-    pub fn asin(&self) -> Self {
-        let asin = self.scalar.asin();
-        self.ad.expect("missing AD instance reference")
-            .create_unary_composite(
-                self, asin, 1.0 / (1.0 - self.scalar * self.scalar).sqrt(),
-            )
-    }
-
-    pub fn acos(&self) -> Self {
-        let acos = self.scalar.acos();
-        self.ad.expect("missing AD instance reference")
-            .create_unary_composite(
-                self, acos, -1.0 / (1.0 - self.scalar * self.scalar).sqrt(),
-            )
-    }
-
-    pub fn atan(&self) -> Self {
-        let atan = self.scalar.atan();
-        self.ad.expect("missing AD instance reference")
-            .create_unary_composite(
-                self, atan, 1.0 / (1.0 + self.scalar * self.scalar),
-            )
-    }
-
-    pub fn sinh(&self) -> Self {
-        let sinh = self.scalar.sinh();
-        self.ad.expect("missing AD instance reference")
-            .create_unary_composite(
-                self, sinh, self.scalar.cosh(),
-            )
-    }
-
-    pub fn cosh(&self) -> Self {
-        let cosh = self.scalar.cosh();
-        self.ad.expect("missing AD instance reference")
-            .create_unary_composite(
-                self, cosh, self.scalar.sinh(),
-            )
-    }
-
-    pub fn tanh(&self) -> Self {
-        let tanh = self.scalar.tanh();
-        self.ad.expect("missing AD instance reference")
-            .create_unary_composite(
-                self, tanh, 1.0 - tanh * tanh,
-            )
-    }
-
-    pub fn asinh(&self) -> Self {
-        let asinh = self.scalar.asinh();
-        self.ad.expect("missing AD instance reference")
-            .create_unary_composite(
-                self, asinh, 1.0 / (self.scalar.powi(3)).sqrt(),
-            )
-    }
-
-    pub fn acosh(&self) -> Self {
-        let acosh = self.scalar.acosh();
-        self.ad.expect("missing AD instance reference")
-            .create_unary_composite(
-                self, acosh, 1.0 / (self.scalar * self.scalar - 1.0).sqrt(),
-            )
-    }
-
-    pub fn atanh(&self) -> Self {
-        let atanh = self.scalar.atanh();
-        self.ad.expect("missing AD instance reference")
-            .create_unary_composite(
-                self, atanh, 1.0 / (1.0 - self.scalar * self.scalar),
-            )
-    }
-
-    pub fn sqrt(&self) -> Self {
-        let sqrt = self.scalar.sqrt();
-        self.ad.expect("missing AD instance reference")
-            .create_unary_composite(
-                self, sqrt, 0.5 / sqrt,
-            )
-    }
-
-    pub fn cbrt(&self) -> Self {
-        let cbrt = self.scalar.cbrt();
-        self.ad.expect("missing AD instance reference")
-            .create_unary_composite(
-                self, cbrt, 1.0 / 3.0 * (self.scalar / cbrt).powi(2),
-            )
-    }
-
-    pub fn abs(&self) -> Self {
-        let abs = self.scalar.abs();
-        self.ad.expect("missing AD instance reference")
-            .create_unary_composite(
-                self, abs, if self.scalar < 0.0 { -1.0 } else { 1.0 },
-            )
-    }
 }
 
 impl <'a> std::default::Default for ADNumber<'a> {
@@ -304,6 +194,159 @@ impl <'a> std::cmp::PartialOrd for ADNumber<'a> {
 }
 
 impl <'a> NumberLike<ADNumberFactory> for ADNumber<'a> {
+    fn exp(&self) -> Self {
+        let exp = self.scalar.exp();
+        self.ad.expect("missing AD instance reference")
+            .create_unary_composite(
+                self, exp, exp
+            )
+    }
+
+    fn log(&self, base: f32) -> Self {
+        let log = self.scalar.log(base);
+        self.ad.expect("missing AD instance reference")
+            .create_unary_composite(
+                self, log, 1.0 / self.scalar
+            )
+    }
+
+    fn powi(&self, operand: i32) -> Self {
+        self.ad.expect("missing AD instance reference")
+            .create_unary_composite(
+                self, self.scalar.powi(operand),
+                self.scalar.powi(operand - 1) * operand as f32
+            )
+    }
+
+    fn powf(&self, operand: f32) -> Self {
+        self.ad.expect("missing AD instance reference")
+            .create_unary_composite(
+                self, self.scalar.powf(operand),
+                self.scalar.powf(operand - 1.0) * operand
+            )
+    }
+
+    fn sin(&self) -> Self {
+        let sin = self.scalar.sin();
+        self.ad.expect("missing AD instance reference")
+            .create_unary_composite(
+                self, sin, self.scalar.cos()
+            )
+    }
+
+    fn cos(&self) -> Self {
+        let cos = self.scalar.cos();
+        self.ad.expect("missing AD instance reference")
+            .create_unary_composite(
+                self, cos, -self.scalar.sin()
+            )
+    }
+
+    fn tan(&self) -> Self {
+        let tan = self.scalar.tan();
+        self.ad.expect("missing AD instance reference")
+            .create_unary_composite(
+                self, tan, 1.0 + tan * tan
+            )
+    }
+
+    fn asin(&self) -> Self {
+        let asin = self.scalar.asin();
+        self.ad.expect("missing AD instance reference")
+            .create_unary_composite(
+                self, asin, 1.0 / (1.0 - self.scalar.powi(2)).sqrt()
+            )
+    }
+
+    fn acos(&self) -> Self {
+        let acos = self.scalar.acos();
+        self.ad.expect("missing AD instance reference")
+            .create_unary_composite(
+                self, acos, -1.0 / (1.0 - self.scalar.powi(2)).sqrt(),
+            )
+    }
+
+    fn atan(&self) -> Self {
+        let atan = self.scalar.atan();
+        self.ad.expect("missing AD instance reference")
+            .create_unary_composite(
+                self, atan, 1.0 / (1.0 + self.scalar.powi(2)),
+            )
+    }
+
+    fn sinh(&self) -> Self {
+        let sinh = self.scalar.sinh();
+        self.ad.expect("missing AD instance reference")
+            .create_unary_composite(
+                self, sinh, self.scalar.cosh(),
+            )
+    }
+
+    fn cosh(&self) -> Self {
+        let cosh = self.scalar.cosh();
+        self.ad.expect("missing AD instance reference")
+            .create_unary_composite(
+                self, cosh, self.scalar.sinh(),
+            )
+    }
+
+    fn tanh(&self) -> Self {
+        let tanh = self.scalar.tanh();
+        self.ad.expect("missing AD instance reference")
+            .create_unary_composite(
+                self, tanh, 1.0 - tanh * tanh,
+            )
+    }
+
+    fn asinh(&self) -> Self {
+        let asinh = self.scalar.asinh();
+        self.ad.expect("missing AD instance reference")
+            .create_unary_composite(
+                self, asinh, 1.0 / (self.scalar.powi(3)).sqrt(),
+            )
+    }
+
+    fn acosh(&self) -> Self {
+        let acosh = self.scalar.acosh();
+        self.ad.expect("missing AD instance reference")
+            .create_unary_composite(
+                self, acosh, 1.0 / (self.scalar.powi(2) - 1.0).sqrt(),
+            )
+    }
+
+    fn atanh(&self) -> Self {
+        let atanh = self.scalar.atanh();
+        self.ad.expect("missing AD instance reference")
+            .create_unary_composite(
+                self, atanh, 1.0 / (1.0 - self.scalar.powi(2)),
+            )
+    }
+
+    fn sqrt(&self) -> Self {
+        let sqrt = self.scalar.sqrt();
+        self.ad.expect("missing AD instance reference")
+            .create_unary_composite(
+                self, sqrt, 0.5 / sqrt,
+            )
+    }
+
+    fn cbrt(&self) -> Self {
+        let cbrt = self.scalar.cbrt();
+        self.ad.expect("missing AD instance reference")
+            .create_unary_composite(
+                self, cbrt,
+                1.0 / 3.0 * (self.scalar / cbrt).powi(2)
+            )
+    }
+
+    fn abs(&self) -> Self {
+        let abs = self.scalar.abs();
+        self.ad.expect("missing AD instance reference")
+            .create_unary_composite(
+                self, abs,
+                if self.scalar < 0.0 { -1.0 } else { 1.0 }
+            )
+    }
 }
 
 impl std::fmt::Debug for AD {
@@ -436,9 +479,8 @@ impl AD {
 
         ADNumber {
             ad: Some(self),
-            id,
-            tape_id,
-            scalar: result,
+            id, tape_id,
+            ..ADNumber::new(result)
         }
     }
 
@@ -458,7 +500,7 @@ impl AD {
         dy
     }
 
-    pub fn diff(&self, y: &ADNumber, wrt: &ADNumber) -> f32 {
+    fn diff(&self, y: &ADNumber, wrt: &ADNumber) -> f32 {
         let mut gradients = self.gradients.borrow_mut();
         match gradients.get(&y.id) {
             Some(dy) => dy[wrt.id],
