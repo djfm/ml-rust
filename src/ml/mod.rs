@@ -1,15 +1,15 @@
 mod ad_number;
 mod ad;
 
-use ad::{
+pub use ad::{
     AD,
 };
 
 mod tests {
-    use super::*;
 
     #[test]
     fn test_add() {
+        use super::{AD};
         let ad = AD::new();
         let x = ad.create_variable(2.0);
         let y = x + x;
@@ -23,6 +23,7 @@ mod tests {
 
     #[test]
     fn test_mul_sub() {
+        use super::{AD};
         let ad = AD::new();
         let x = ad.create_variable(2.0);
         let y = x - x;
