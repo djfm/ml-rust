@@ -90,22 +90,26 @@ impl <'a> ADNumber<'a> {
 
 impl AD {
     pub fn new() -> AD {
-        let mut tapes = HashMap::new();
-        tapes.insert(1, Tape::new());
         AD {
-            tapes: RefCell::new(tapes),
+            tapes: RefCell::new(vec![(1, Tape::new())].into_iter().collect()),
             max_tape_id: RefCell::new(0),
             gradients: RefCell::new(HashMap::new()),
         }
     }
 
-    fn next_tape_id(&self) -> usize {
-        let mut max_id = self.max_tape_id.borrow_mut();
-        *max_id += 1;
-        *max_id
+    pub fn reset(&self) {
+        self.max_tape_id.replace(0);
+        self.gradients.replace(HashMap::new());
+        self.tapes.replace(HashMap::new());
     }
 
-    fn max_tape_id(&self) -> usize {
+    fn next_tape_id(&self) -> usize {
+        let mut id = self.max_tape_id.borrow_mut();
+        *id += 1;
+        *id
+    }
+
+    fn current_tape_id(&self) -> usize {
         if *self.max_tape_id.borrow() == 0 {
             self.next_tape_id()
         } else {
@@ -129,18 +133,19 @@ impl AD {
     }
 
     pub fn create_variable(&self, scalar: f32) -> ADNumber {
-        let tape_id = self.max_tape_id();
+        let tape_id = self.current_tape_id();
         let mut tapes = self.tapes.borrow_mut();
+        let tape = tapes.get_mut(&tape_id).unwrap();
+
+        let id = tape.records.len();
+        tape.records.push(TapeRecord::new());
 
         let value = ADNumber {
             ad: self,
-            id: 0,
+            id,
             tape_id,
             scalar,
         };
-
-        let tape = tapes.get_mut(&tape_id).unwrap();
-        tape.records.push(TapeRecord::new());
 
         value
     }
@@ -153,8 +158,8 @@ impl AD {
         diff_wrt_left: f32,
         diff_wrt_right: f32,
     ) -> ADNumber {
-        let tape_id = self.max_tape_id();
-        let tapes = &mut self.tapes.borrow_mut();
+        let tape_id = self.current_tape_id();
+        let mut tapes = self.tapes.borrow_mut();
         let tape = tapes.get_mut(&tape_id).unwrap();
 
         if left.is_constant() && right.is_constant() {
@@ -162,11 +167,13 @@ impl AD {
         }
 
         let mut rec = TapeRecord::new();
-        rec.record(
-            &left, diff_wrt_left,
-        ).record(
-            &right, diff_wrt_right,
-        );
+        if left.is_variable() {
+            rec.record(left, diff_wrt_left);
+        }
+
+        if right.is_variable() {
+            rec.record(right, diff_wrt_right);
+        }
 
         let id = tape.records.len();
         tape.records.push(rec);
@@ -185,8 +192,8 @@ impl AD {
         result: f32,
         diff_wrt_operand: f32,
     ) -> ADNumber {
-        let tape_id = self.max_tape_id();
-        let tapes = &mut self.tapes.borrow_mut();
+        let tape_id = self.current_tape_id();
+        let mut tapes = self.tapes.borrow_mut();
         let tape = tapes.get_mut(&tape_id).unwrap();
         let id = tape.records.len();
 
@@ -203,6 +210,7 @@ impl AD {
         rec.record(
             operand, diff_wrt_operand,
         );
+        tape.records.push(rec);
 
         ADNumber {
             ad: self,
@@ -254,6 +262,46 @@ impl <'a> ops::Add<ADNumber<'a>> for ADNumber<'a> {
     }
 }
 
+impl <'a> ops::Add<f32> for ADNumber<'a> {
+    type Output = ADNumber<'a>;
+
+    fn add(self, other: f32) -> ADNumber<'a> {
+        self.ad.create_unary_composite(&self, self.scalar + other, 1.0)
+    }
+}
+
+impl <'a> ops::AddAssign<ADNumber<'a>> for ADNumber<'a> {
+    fn add_assign(&mut self, other: ADNumber<'a>) {
+        *self = *self + other;
+    }
+}
+
+impl <'a> ops::Sub<ADNumber<'a>> for ADNumber<'a> {
+    type Output = ADNumber<'a>;
+
+    fn sub(self, other: ADNumber<'a>) -> ADNumber {
+        self.ad.create_binary_composite(
+            &self, &other,
+            self.scalar - other.scalar,
+            1.0, -1.0,
+        )
+    }
+}
+
+impl <'a> ops::Sub<f32> for ADNumber<'a> {
+    type Output = ADNumber<'a>;
+
+    fn sub(self, other: f32) -> ADNumber<'a> {
+        self.ad.create_unary_composite(&self, self.scalar - other, 1.0)
+    }
+}
+
+impl <'a> ops::SubAssign<ADNumber<'a>> for ADNumber<'a> {
+    fn sub_assign(&mut self, other: ADNumber<'a>) {
+        *self = *self + other;
+    }
+}
+
 mod tests {
     use super::*;
 
@@ -263,7 +311,10 @@ mod tests {
         let x = ad.create_variable(2.0);
         let y = x + x;
         println!("{:#?}", ad);
-        assert_eq!(y.scalar(), 4.0);
         assert_eq!(y.diff(&x), 2.0);
+        assert_eq!((y + ad.create_variable(7.0)).diff(&x), 2.0);
+        assert_eq!((y + ad.create_constant(7.0)).diff(&x), 2.0);
+        assert_eq!((y + 7.0).diff(&x), 2.0);
+        assert_eq!((y + 7.0).scalar, 11.0);
     }
 }
