@@ -4,6 +4,8 @@ use std::{
     ops,
 };
 
+use rand::prelude::*;
+
 use super::{
     ad::{AD},
     math::{
@@ -20,7 +22,38 @@ pub struct ADNumber<'a> {
     scalar: f32,
 }
 
-pub struct ADNumberFactory {}
+pub struct ADNumberFactory {
+    ad: AD,
+    rng: ThreadRng,
+}
+
+impl <'a> ADNumberFactory {
+    fn get_instance() -> &'a ADNumberFactory {
+        unsafe {
+            match AD_NUMBER_FACTORY {
+                Some(ref factory) => factory,
+                None => {
+                    let factory = ADNumberFactory {
+                        ad: AD::new(),
+                        rng: thread_rng(),
+                    };
+                    AD_NUMBER_FACTORY = Some(factory);
+                    AD_NUMBER_FACTORY.as_ref().unwrap()
+                }
+            }
+        }
+    }
+
+    fn get_instance_mut() -> &'a mut ADNumberFactory {
+        unsafe {
+            AD_NUMBER_FACTORY.get_or_insert(ADNumberFactory {
+                ad: AD::new(),
+                rng: thread_rng(),
+            })
+        }
+    }
+}
+
 impl <'a> NumberFactory<ADNumber<'a>> for ADNumberFactory {
     fn zero() -> ADNumber<'a> {
         ADNumber::new(0, 0, None, 0.0)
@@ -29,7 +62,15 @@ impl <'a> NumberFactory<ADNumber<'a>> for ADNumberFactory {
     fn one() -> ADNumber<'a> {
         ADNumber::new(0, 0, None, 1.0)
     }
+
+    fn small_rand() -> ADNumber<'a> {
+        let factory = ADNumberFactory::get_instance_mut();
+        let scalar = factory.rng.gen::<f32>();
+        factory.ad.create_variable(scalar)
+    }
 }
+
+static mut AD_NUMBER_FACTORY: Option<ADNumberFactory> = None;
 
 impl <'a> ADNumber<'a> {
     pub fn new(
@@ -238,9 +279,9 @@ impl <'a> NumberLike<ADNumberFactory> for ADNumber<'a> {
 }
 
 impl <'a> ops::Add<ADNumber<'a>> for ADNumber<'a> {
-    type Output = ADNumber<'a>;
+    type Output  = ADNumber<'a>;
 
-    fn add(self, other: ADNumber<'a>) -> ADNumber {
+    fn add(self, other: ADNumber<'a>) -> Self::Output {
         self.ad.expect("reference to AD instance is missing")
             .create_binary_composite(
                 &self, &other,

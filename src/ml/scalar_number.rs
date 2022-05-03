@@ -3,7 +3,22 @@ use super::math::{
     NumberFactory,
 };
 
-struct FloatFactory {}
+use rand::prelude::*;
+
+struct FloatFactory {
+    rng: ThreadRng,
+}
+
+impl <'a> FloatFactory {
+    pub fn get_instance() -> &'a mut FloatFactory {
+        unsafe {
+            FLOAT_FACTORY_INSTANCE.get_or_insert(FloatFactory {
+                rng: thread_rng(),
+            })
+        }
+    }
+}
+
 impl NumberFactory<f32> for FloatFactory {
     fn zero() -> f32 {
         0.0
@@ -12,7 +27,17 @@ impl NumberFactory<f32> for FloatFactory {
     fn one() -> f32 {
         1.0
     }
+
+    fn small_rand() -> f32 {
+        let instance = Self::get_instance();
+        let mut rng = instance.rng.clone();
+        let res = rng.gen::<f32>();
+        instance.rng = rng;
+        res
+    }
 }
+
+static mut FLOAT_FACTORY_INSTANCE: Option<FloatFactory> = None;
 
 impl NumberLike<FloatFactory> for f32 {
     fn exp(&self) -> f32 {

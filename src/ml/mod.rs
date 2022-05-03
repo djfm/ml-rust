@@ -1,7 +1,8 @@
 mod ad_number;
-mod ad;
+pub mod ad;
 mod scalar_number;
 mod math;
+pub mod ff_network;
 
 pub use crate::ml::{
     math::{
@@ -9,7 +10,11 @@ pub use crate::ml::{
     },
     ad::{
         AD,
-    }
+    },
+    ad_number::{
+        ADNumber,
+        ADNumberFactory,
+    },
 };
 
 mod tests {

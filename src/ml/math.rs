@@ -9,6 +9,10 @@ pub trait NumberFactory<Number>
 {
     fn zero() -> Number;
     fn one() -> Number;
+    fn small_rand() -> Number;
+    fn small_random() -> Number {
+        Self::small_rand()
+    }
 }
 
 pub trait NumberLike<Factory> where
