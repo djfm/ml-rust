@@ -80,7 +80,7 @@ impl AD {
         }
     }
 
-    pub fn reset(&self) {
+    fn reset(&self) {
         self.max_tape_id.replace(0);
         self.gradients.replace(HashMap::new());
         self.tapes.replace(HashMap::new());
@@ -98,12 +98,6 @@ impl AD {
         } else {
             *self.max_tape_id.borrow()
         }
-    }
-
-    fn get_tape_mut(&mut self) -> &mut Tape {
-        let tape_id = *self.max_tape_id.borrow();
-        let tape = self.tapes.get_mut().get_mut(&tape_id).unwrap();
-        tape
     }
 
     pub fn create_constant(&self, scalar: f32) -> ADNumber {

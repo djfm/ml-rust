@@ -1,4 +1,4 @@
-use super::math::{
+use crate::ml::math::{
     NumberFactory,
     NumberLike,
 };

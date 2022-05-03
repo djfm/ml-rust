@@ -1,9 +1,9 @@
-use super::math::{
+use rand::prelude::*;
+
+use crate::ml::math::{
     NumberLike,
     NumberFactory,
 };
-
-use rand::prelude::*;
 
 struct FloatFactory {
     rng: ThreadRng,
