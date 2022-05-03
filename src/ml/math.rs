@@ -103,3 +103,7 @@ pub trait SingleActivator<T: NumberLike<F>, F: NumberFactory<T>> {
 pub trait LayerActivator<T: NumberLike<F>, F: NumberFactory<T>> {
     fn activate(&self, x: &[T]) -> Vec<T>;
 }
+
+pub trait ErrorComputer<T: NumberLike<F>, F: NumberFactory<T>> {
+    fn compute_error(&self, x: &[T], y: &[T]) -> T;
+}

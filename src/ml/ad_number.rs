@@ -15,6 +15,8 @@ use crate::ml::{
         SingleActivation,
         LayerActivator,
         LayerActivation,
+        ErrorComputer,
+        ErrorFunction,
     },
 };
 
@@ -440,6 +442,23 @@ impl <'a> LayerActivator<ADNumber<'a>, ADNumberFactory> for LayerActivation {
                 }
 
                 result.iter().map(|v| *v / sum).collect::<Vec<_>>()
+            },
+        }
+    }
+}
+
+impl <'a> ErrorComputer<ADNumber<'a>, ADNumberFactory> for ErrorFunction {
+    fn compute_error(&self, value: &[ADNumber<'a>], target: &[ADNumber<'a>]) -> ADNumber<'a> {
+        match *self {
+            ErrorFunction::None => ADNumberFactory::one(),
+            ErrorFunction::EuclideanDistanceSquared => {
+                let mut sum = ADNumberFactory::zero();
+
+                for (v, t) in value.iter().zip(target.iter()) {
+                    sum += (*v - *t).powi(2);
+                }
+
+                sum
             },
         }
     }
