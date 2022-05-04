@@ -78,6 +78,10 @@ where
     }
 }
 
+pub trait Differentiable<N: NumberLike<F>, F: NumberFactory<N>> {
+    fn diff(&self, wrt: &N) -> f32;
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum CellActivation {
     None,
@@ -159,4 +163,18 @@ impl ErrorFunction {
             }
         }
     }
+}
+
+pub fn one_hot_label<N: NumberLike<F>, F: NumberFactory<N>>(vector: &Vec<N>) -> usize {
+    let mut max = vector[0];
+    let mut max_index = 0;
+
+    for (i, v) in vector.iter().enumerate() {
+        if *v > max {
+            max = *v;
+            max_index = i;
+        }
+    }
+
+    max_index
 }

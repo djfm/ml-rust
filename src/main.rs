@@ -6,6 +6,7 @@ mod graphics;
 mod ml;
 mod math;
 mod mnist_train_2;
+mod util;
 
 fn main() {
     // mnist::train();

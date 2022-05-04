@@ -11,6 +11,7 @@ use crate::ml::{
     math::{
         NumberLike,
         NumberFactory,
+        Differentiable,
     },
 };
 
@@ -410,5 +411,11 @@ impl <'a> ops::Div<f32> for ADNumber<'a> {
 impl <'a> ops::DivAssign<ADNumber<'a>> for ADNumber<'a> {
     fn div_assign(&mut self, other: ADNumber<'a>) {
         *self = *self / other;
+    }
+}
+
+impl <'a> Differentiable<ADNumber<'a>, ADNumberFactory> for ADNumber<'a> {
+    fn diff(&self, wrt: &ADNumber<'a>) -> f32 {
+        self.diff(wrt)
     }
 }

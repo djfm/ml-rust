@@ -1,20 +1,12 @@
 use crate::ml::math::{
+    one_hot_label,
+    CellActivation,
+    Differentiable,
+    ErrorFunction,
+    LayerActivation,
     NumberFactory,
     NumberLike,
-    LayerActivation,
-    CellActivation,
-    ErrorFunction,
 };
-
-pub trait TrainingSample<T, F>
-where
-    T: NumberLike<F>,
-    F: NumberFactory<T>,
-{
-    fn get_input(&self) -> Vec<T>;
-    fn get_label(&self) -> usize;
-    fn get_expected_one_hot(&self) -> Vec<T>;
-}
 
 pub struct Layer<
     CellT: NumberLike<Factory>,
@@ -25,6 +17,52 @@ pub struct Layer<
     cells: Vec<CellT>,
     config: LayerConfig,
     phantom: std::marker::PhantomData<Factory>,
+}
+
+#[derive(Copy, Clone)]
+pub struct LayerConfig {
+    pub layer_size: usize,
+    pub prev_layer_size: usize,
+    pub layer_activation: LayerActivation,
+    pub cell_activation: CellActivation,
+    pub has_biases: bool,
+}
+
+pub struct Network<
+    CellT, FactoryT
+> where
+        FactoryT: NumberFactory<CellT>,
+        CellT: NumberLike<FactoryT>,
+{
+    layers: Vec<Layer<CellT, FactoryT>>,
+    error_function: ErrorFunction,
+    phantom: std::marker::PhantomData<FactoryT>,
+}
+
+pub struct TrainingConfig {
+    pub learning_rate: f32,
+    pub batch_size: usize,
+    pub epochs: usize,
+}
+
+impl TrainingConfig {
+    pub fn new() -> Self {
+        TrainingConfig {
+            learning_rate: 0.01,
+            batch_size: 32,
+            epochs: 5,
+        }
+    }
+}
+
+pub trait TrainingSample<T, F>
+where
+    T: NumberLike<F>,
+    F: NumberFactory<T>,
+{
+    fn get_input(&self) -> Vec<T>;
+    fn get_label(&self) -> usize;
+    fn get_expected_one_hot(&self) -> Vec<T>;
 }
 
 impl <
@@ -39,14 +77,20 @@ impl <
             |_| FactoryT::small_rand()
         ).collect();
 
-        let biases = vec![
-            FactoryT::zero();
-            config.layer_size
-        ];
+        let biases = if config.has_biases {
+            vec![
+                FactoryT::zero();
+                config.layer_size
+            ]
+        } else {
+            vec![]
+        };
+
         let cells = vec![
             FactoryT::zero();
             config.layer_size
         ];
+
         Layer {
             weights,
             biases,
@@ -67,15 +111,6 @@ impl <
     }
 }
 
-
-#[derive(Copy, Clone)]
-pub struct LayerConfig {
-    pub layer_size: usize,
-    pub prev_layer_size: usize,
-    pub layer_activation: LayerActivation,
-    pub cell_activation: CellActivation,
-}
-
 impl LayerConfig {
     pub fn new(layer_size: usize) -> Self {
         LayerConfig {
@@ -83,19 +118,9 @@ impl LayerConfig {
             prev_layer_size: 0,
             layer_activation: LayerActivation::None,
             cell_activation: CellActivation::LeakyReLU(0.01),
+            has_biases: true,
         }
     }
-}
-
-pub struct Network<
-    CellT, FactoryT
-> where
-        FactoryT: NumberFactory<CellT>,
-        CellT: NumberLike<FactoryT>,
-{
-    layers: Vec<Layer<CellT, FactoryT>>,
-    error_function: ErrorFunction,
-    phantom: std::marker::PhantomData<FactoryT>,
 }
 
 impl <CellT, FactoryT> Network<CellT, FactoryT>
@@ -106,7 +131,7 @@ where
     pub fn new() -> Self {
         Network {
             layers: Vec::new(),
-            error_function: ErrorFunction::None,
+            error_function: ErrorFunction::EuclideanDistanceSquared,
             phantom: std::marker::PhantomData,
         }
     }
@@ -148,10 +173,16 @@ where
             let layer = &mut nex_layers[l];
 
             for c in 0..layer.cells.len() {
-                let mut sum = layer.biases[c];
+                let mut sum = if layer.config.has_biases {
+                    layer.biases[c]
+                } else {
+                    FactoryT::zero()
+                };
+
                 for (w, prev_cell) in layer.weights_for_cell(c).iter().zip(prev_layer.cells.iter()) {
                     sum += *w * *prev_cell;
                 }
+
                 layer.cells[c] = layer.config.cell_activation.compute(&sum);
             }
 
@@ -161,6 +192,10 @@ where
         }
 
         &self.layers.last().unwrap().cells
+    }
+
+    pub fn predict(&mut self, input: &dyn TrainingSample<CellT, FactoryT>) -> usize {
+        one_hot_label(self.feed_forward(input))
     }
 
     pub fn compute_sample_error(&mut self, sample: &dyn TrainingSample<CellT, FactoryT>) -> CellT {
@@ -184,5 +219,37 @@ where
         ).reduce(
             |a, b| a + b
         ).expect("Cannot compute batch error")
+    }
+
+    pub fn compute_accuracy<S: TrainingSample<CellT, FactoryT>>(&mut self, samples: &[S]) -> f32 {
+        let mut correct = 0;
+
+        for s in samples {
+            if self.predict(s) == s.get_label() {
+                correct += 1;
+            }
+        }
+
+        100.0 * correct as f32 / samples.len() as f32
+    }
+}
+
+impl <'a, N: NumberLike<F> + Differentiable<N, F>, F: NumberFactory<N>> Network<N, F> {
+    pub fn back_propagate(&mut self, error: &N, tconf: &TrainingConfig) -> &mut Self {
+        for layer in self.layers.iter_mut() {
+            for cell in layer.cells.iter_mut() {
+                let delta = error.diff(cell) * tconf.learning_rate;
+                *cell -= F::from_scalar(delta);
+            }
+
+            if layer.config.has_biases {
+                for bias in layer.biases.iter_mut() {
+                    let delta = error.diff(bias) * tconf.learning_rate;
+                    *bias -= F::from_scalar(delta);
+                }
+            }
+        }
+
+        self
     }
 }
