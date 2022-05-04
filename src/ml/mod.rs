@@ -1,7 +1,7 @@
-mod ad_number;
+pub mod ad_number;
 pub mod ad;
 mod scalar_number;
-mod math;
+pub mod math;
 pub mod ff_network;
 
 pub use crate::ml::{

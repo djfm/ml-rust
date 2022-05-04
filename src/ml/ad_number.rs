@@ -11,8 +11,8 @@ use crate::ml::{
     math::{
         NumberLike,
         NumberFactory,
-        SingleActivator,
-        SingleActivation,
+        CellActivator,
+        CellActivation,
         LayerActivator,
         LayerActivation,
         ErrorComputer,
@@ -415,12 +415,12 @@ impl <'a> ops::DivAssign<ADNumber<'a>> for ADNumber<'a> {
     }
 }
 
-impl <'a> SingleActivator<ADNumber<'a>, ADNumberFactory> for SingleActivation {
+impl <'a> CellActivator<ADNumber<'a>, ADNumberFactory> for CellActivation {
     fn activate(&self, value: &ADNumber<'a>) -> ADNumber<'a> {
         match *self {
-            SingleActivation::None => value.clone(),
-            SingleActivation::ReLu => value.relu(),
-            SingleActivation::LeakyReLU(alpha) => value.leaky_relu(
+            CellActivation::None => value.clone(),
+            CellActivation::ReLu => value.relu(),
+            CellActivation::LeakyReLU(alpha) => value.leaky_relu(
                 ADNumberFactory::one() * alpha
             ),
         }

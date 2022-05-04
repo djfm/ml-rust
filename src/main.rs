@@ -5,6 +5,7 @@ mod activations;
 mod graphics;
 mod ml;
 mod math;
+mod mnist_train_2;
 
 fn main() {
     // mnist::train();

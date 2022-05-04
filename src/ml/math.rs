@@ -78,7 +78,7 @@ pub trait NumberLike<Factory> where
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum SingleActivation {
+pub enum CellActivation {
     None,
     ReLu,
     LeakyReLU(f32),
@@ -96,7 +96,7 @@ pub enum ErrorFunction {
     EuclideanDistanceSquared,
 }
 
-pub trait SingleActivator<T: NumberLike<F>, F: NumberFactory<T>> {
+pub trait CellActivator<T: NumberLike<F>, F: NumberFactory<T>> {
     fn activate(&self, x: &T) -> T;
 }
 
