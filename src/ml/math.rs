@@ -13,17 +13,18 @@ pub trait NumberFactory<Number>
     fn small_random() -> Number {
         Self::small_rand()
     }
+    fn from_scalar(scalar: f32) -> Number;
 }
 
-pub trait NumberLike<Factory> where
-    Self:
-        Sized + Default + Clone +
-        cmp::PartialEq + cmp::PartialOrd +
-        ops::Add<Output=Self> + ops::AddAssign +
-        ops::Sub<Output=Self> + ops::SubAssign +
-        ops::Neg<Output=Self> +
-        ops::Mul<Output=Self> + ops::MulAssign +
-        ops::Div<Output=Self> + ops::DivAssign,
+pub trait NumberLike<Factory>:
+    Sized + Default + Clone + Copy +
+    cmp::PartialEq + cmp::PartialOrd +
+    ops::Add<Output=Self> + ops::AddAssign +
+    ops::Sub<Output=Self> + ops::SubAssign +
+    ops::Neg<Output=Self> +
+    ops::Mul<Output=Self> + ops::MulAssign +
+    ops::Div<Output=Self> + ops::DivAssign
+where
     Factory: NumberFactory<Self>
 {
     fn relu(&self) -> Self {
@@ -96,14 +97,17 @@ pub enum ErrorFunction {
     EuclideanDistanceSquared,
 }
 
-pub trait CellActivator<T: NumberLike<F>, F: NumberFactory<T>> {
-    fn activate(&self, x: &T) -> T;
-}
-
-pub trait LayerActivator<T: NumberLike<F>, F: NumberFactory<T>> {
-    fn activate(&self, x: &[T]) -> Vec<T>;
-}
-
-pub trait ErrorComputer<T: NumberLike<F>, F: NumberFactory<T>> {
-    fn compute_error(&self, x: &[T], y: &[T]) -> T;
+impl CellActivation {
+    pub fn compute<N: NumberLike<F>, F: NumberFactory<N>>(
+        &self,
+        x: &N
+    ) -> N {
+        match self {
+            CellActivation::None => x.clone(),
+            CellActivation::ReLu => x.relu(),
+            CellActivation::LeakyReLU(leaking_factor) => x.leaky_relu(
+                NumberFactory::from_scalar(*leaking_factor)
+            ),
+        }
+    }
 }

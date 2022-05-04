@@ -35,6 +35,10 @@ impl NumberFactory<f32> for FloatFactory {
         instance.rng = rng;
         res
     }
+
+    fn from_scalar(scalar: f32) -> f32 {
+        scalar
+    }
 }
 
 static mut FLOAT_FACTORY_INSTANCE: Option<FloatFactory> = None;

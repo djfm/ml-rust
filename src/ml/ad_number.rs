@@ -11,12 +11,6 @@ use crate::ml::{
     math::{
         NumberLike,
         NumberFactory,
-        CellActivator,
-        CellActivation,
-        LayerActivator,
-        LayerActivation,
-        ErrorComputer,
-        ErrorFunction,
     },
 };
 
@@ -73,6 +67,10 @@ impl <'a> NumberFactory<ADNumber<'a>> for ADNumberFactory {
         let factory = ADNumberFactory::get_instance_mut();
         let scalar = factory.rng.gen::<f32>();
         factory.ad.create_variable(scalar)
+    }
+
+    fn from_scalar(scalar: f32) -> ADNumber<'a> {
+        ADNumberFactory::get_instance().ad.create_variable(scalar)
     }
 }
 
@@ -412,54 +410,5 @@ impl <'a> ops::Div<f32> for ADNumber<'a> {
 impl <'a> ops::DivAssign<ADNumber<'a>> for ADNumber<'a> {
     fn div_assign(&mut self, other: ADNumber<'a>) {
         *self = *self / other;
-    }
-}
-
-impl <'a> CellActivator<ADNumber<'a>, ADNumberFactory> for CellActivation {
-    fn activate(&self, value: &ADNumber<'a>) -> ADNumber<'a> {
-        match *self {
-            CellActivation::None => value.clone(),
-            CellActivation::ReLu => value.relu(),
-            CellActivation::LeakyReLU(alpha) => value.leaky_relu(
-                ADNumberFactory::one() * alpha
-            ),
-        }
-    }
-}
-
-impl <'a> LayerActivator<ADNumber<'a>, ADNumberFactory> for LayerActivation {
-    fn activate(&self, value: &[ADNumber<'a>]) -> Vec<ADNumber<'a>> {
-        match *self {
-            LayerActivation::None => value.to_vec(),
-            LayerActivation::SoftMax => {
-                let mut sum = ADNumberFactory::zero();
-                let mut result = value.to_vec();
-
-                for (i, v) in value.iter().enumerate() {
-                    let exp = v.exp();
-                    sum = sum + exp;
-                    result[i] = exp;
-                }
-
-                result.iter().map(|v| *v / sum).collect::<Vec<_>>()
-            },
-        }
-    }
-}
-
-impl <'a> ErrorComputer<ADNumber<'a>, ADNumberFactory> for ErrorFunction {
-    fn compute_error(&self, value: &[ADNumber<'a>], target: &[ADNumber<'a>]) -> ADNumber<'a> {
-        match *self {
-            ErrorFunction::None => ADNumberFactory::one(),
-            ErrorFunction::EuclideanDistanceSquared => {
-                let mut sum = ADNumberFactory::zero();
-
-                for (v, t) in value.iter().zip(target.iter()) {
-                    sum += (*v - *t).powi(2);
-                }
-
-                sum
-            },
-        }
     }
 }

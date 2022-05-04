@@ -9,5 +9,6 @@ mod mnist_train_2;
 
 fn main() {
     // mnist::train();
-    mnist::train_parallel();
+    // mnist::train_parallel();
+    mnist_train_2::train();
 }
