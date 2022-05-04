@@ -12,9 +12,13 @@ struct FloatFactory {
 impl <'a> FloatFactory {
     pub fn get_instance() -> &'a mut FloatFactory {
         unsafe {
-            FLOAT_FACTORY_INSTANCE.get_or_insert(FloatFactory {
-                rng: thread_rng(),
-            })
+            if FLOAT_FACTORY_INSTANCE.is_none() {
+                FLOAT_FACTORY_INSTANCE = Some(FloatFactory {
+                    rng: thread_rng()
+                });
+            }
+
+            FLOAT_FACTORY_INSTANCE.as_mut().unwrap()
         }
     }
 }

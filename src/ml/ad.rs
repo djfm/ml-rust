@@ -71,12 +71,24 @@ impl std::fmt::Debug for AD {
     }
 }
 
-impl AD {
+static mut AD_INSTANCE: Option<AD> = None;
+
+impl <'a> AD {
     pub fn new() -> AD {
         AD {
             tapes: RefCell::new(vec![(1, Tape::new())].into_iter().collect()),
             max_tape_id: RefCell::new(0),
             gradients: RefCell::new(HashMap::new()),
+        }
+    }
+
+    pub fn get_instance() -> &'a AD {
+        unsafe {
+            if AD_INSTANCE.is_none() {
+                    AD_INSTANCE = Some(AD::new());
+            }
+
+            AD_INSTANCE.as_ref().unwrap()
         }
     }
 

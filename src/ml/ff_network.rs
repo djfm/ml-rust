@@ -14,7 +14,6 @@ pub struct Layer<
 > {
     weights: Vec<CellT>,
     biases: Vec<CellT>,
-    cells: Vec<CellT>,
     config: LayerConfig,
     phantom: std::marker::PhantomData<Factory>,
 }
@@ -22,7 +21,7 @@ pub struct Layer<
 #[derive(Copy, Clone)]
 pub struct LayerConfig {
     pub layer_size: usize,
-    pub prev_layer_size: usize,
+    pub input_size: usize,
     pub layer_activation: LayerActivation,
     pub cell_activation: CellActivation,
     pub has_biases: bool,
@@ -71,9 +70,9 @@ impl <
 > Layer<CellT, FactoryT> {
     fn new(
         config: &LayerConfig,
-        prev_layer_size: usize,
+        input_size: usize,
     ) -> Self {
-        let weights = (0..config.layer_size*prev_layer_size).map(
+        let weights = (0..config.layer_size*input_size).map(
             |_| FactoryT::small_rand()
         ).collect();
 
@@ -86,17 +85,10 @@ impl <
             vec![]
         };
 
-        let cells = vec![
-            FactoryT::zero();
-            config.layer_size
-        ];
-
         Layer {
-            weights,
-            biases,
-            cells,
+            weights, biases,
             config: LayerConfig {
-                prev_layer_size,
+                input_size,
                 ..*config
             },
             phantom: std::marker::PhantomData,
@@ -104,7 +96,7 @@ impl <
     }
 
     fn weights_for_cell(&self, neuron_id: usize) -> &[CellT] {
-        let weights_per_neuron = self.config.prev_layer_size;
+        let weights_per_neuron = self.config.input_size;
         &self.weights[
             neuron_id*weights_per_neuron..(neuron_id+1)*weights_per_neuron
         ]
@@ -115,7 +107,7 @@ impl LayerConfig {
     pub fn new(layer_size: usize) -> Self {
         LayerConfig {
             layer_size,
-            prev_layer_size: 0,
+            input_size: 0,
             layer_activation: LayerActivation::None,
             cell_activation: CellActivation::LeakyReLU(0.01),
             has_biases: true,
@@ -136,17 +128,25 @@ where
         }
     }
 
+    pub fn layers(&self) -> &[Layer<CellT, FactoryT>] {
+        &self.layers
+    }
+
     pub fn add_layer(
         &mut self,
         config: LayerConfig,
     ) -> &mut Self {
+        if self.layers.is_empty() && config.input_size == 0 {
+            panic!("Input size must be specified for the first layer");
+        }
+
         self.layers.push(
             Layer::new(
                 &config,
                 if self.layers.len() > 0 {
-                    self.layers.last().unwrap().cells.len()
+                    self.layers.last().unwrap().config.layer_size
                 } else {
-                    0
+                    config.input_size
                 }
             )
         );
@@ -162,40 +162,37 @@ where
         self
     }
 
-    pub fn feed_forward(&mut self, input: &dyn TrainingSample<CellT, FactoryT>) -> &Vec<CellT> {
-        for (c, i) in self.layers[0].cells.iter_mut().zip(input.get_input()) {
-            *c = i;
-        }
+    pub fn feed_forward(&self, input: &dyn TrainingSample<CellT, FactoryT>) -> Vec<CellT> {
+        let mut previous_activations = input.get_input();
 
-        for l in 1..self.layers.len() {
-            let (prev_layers, nex_layers) = self.layers.split_at_mut(l);
-            let prev_layer = &prev_layers[l-1];
-            let layer = &mut nex_layers[l];
+        for layer in self.layers.iter().skip(1) {
+            let n_cells = layer.config.layer_size;
+            let mut layer_activations = if layer.config.has_biases {
+                layer.biases.clone()
+            } else {
+                vec![FactoryT::zero(); n_cells]
+            };
 
-            for c in 0..layer.cells.len() {
-                let mut sum = if layer.config.has_biases {
-                    layer.biases[c]
-                } else {
-                    FactoryT::zero()
-                };
+            for cell_id in 0..n_cells {
+                layer_activations[cell_id] += layer.weights.iter().zip(previous_activations.iter()).map(
+                    |(weight, activation)| *weight * *activation
+                ).reduce(
+                    |acc, x| acc + x
+                ).unwrap();
 
-                for (w, prev_cell) in layer.weights_for_cell(c).iter().zip(prev_layer.cells.iter()) {
-                    sum += *w * *prev_cell;
-                }
-
-                layer.cells[c] = layer.config.cell_activation.compute(&sum);
+                layer_activations[cell_id] = layer.config.cell_activation.compute(
+                    &layer_activations[cell_id]
+                );
             }
 
-            if layer.config.layer_activation != LayerActivation::None {
-                layer.cells = layer.config.layer_activation.compute(&layer.cells);
-            }
+            previous_activations = layer_activations;
         }
 
-        &self.layers.last().unwrap().cells
+        previous_activations
     }
 
     pub fn predict(&mut self, input: &dyn TrainingSample<CellT, FactoryT>) -> usize {
-        one_hot_label(self.feed_forward(input))
+        one_hot_label(&self.feed_forward(input))
     }
 
     pub fn compute_sample_error(&mut self, sample: &dyn TrainingSample<CellT, FactoryT>) -> CellT {
@@ -214,11 +211,13 @@ where
         &mut self,
         samples: &[S]
     ) -> CellT {
+        let batch_size = FactoryT::from_scalar(samples.len() as f32);
+
         samples.iter().map(
             |s| self.compute_sample_error(s)
         ).reduce(
             |a, b| a + b
-        ).expect("Cannot compute batch error")
+        ).expect("Cannot compute batch error") / batch_size
     }
 
     pub fn compute_accuracy<S: TrainingSample<CellT, FactoryT>>(&mut self, samples: &[S]) -> f32 {
@@ -237,9 +236,9 @@ where
 impl <'a, N: NumberLike<F> + Differentiable<N, F>, F: NumberFactory<N>> Network<N, F> {
     pub fn back_propagate(&mut self, error: &N, tconf: &TrainingConfig) -> &mut Self {
         for layer in self.layers.iter_mut() {
-            for cell in layer.cells.iter_mut() {
-                let delta = error.diff(cell) * tconf.learning_rate;
-                *cell -= F::from_scalar(delta);
+            for weight in layer.weights.iter_mut() {
+                let delta = error.diff(weight) * tconf.learning_rate;
+                *weight -= F::from_scalar(delta);
             }
 
             if layer.config.has_biases {

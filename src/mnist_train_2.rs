@@ -58,12 +58,7 @@ pub fn create_network<'a>() -> Network<ADNumber<'a>, ADNumberFactory> {
     network
         .add_layer(
             LayerConfig {
-                has_biases: false,
-                ..LayerConfig::new(28 * 28)
-            }
-        )
-        .add_layer(
-            LayerConfig {
+                input_size: 28 * 28,
                 cell_activation: CellActivation::LeakyReLU(0.01),
                 ..LayerConfig::new(32)
             }
@@ -106,6 +101,9 @@ pub fn train() {
     let tconf = TrainingConfig::new();
     let mut processed = 0;
     let total = training_set.len() * tconf.epochs;
+
+    network.feed_forward(&training_set[0]);
+
 
     // TODO: randomize between epochs
     for epoch in 1..=tconf.epochs {

@@ -77,6 +77,12 @@ impl <'a> NumberFactory<ADNumber<'a>> for ADNumberFactory {
 
 static mut AD_NUMBER_FACTORY: Option<ADNumberFactory> = None;
 
+impl std::fmt::Debug for ADNumber<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ADNumber(id = {}, value = {:.4})", self.id, self.scalar)
+    }
+}
+
 impl <'a> ADNumber<'a> {
     pub fn new(
         tape_id: usize,
@@ -87,7 +93,7 @@ impl <'a> ADNumber<'a> {
         ADNumber {
             tape_id,
             id,
-            ad,
+            ad: if ad.is_none() { Some(AD::get_instance()) } else { ad },
             scalar,
         }
     }
