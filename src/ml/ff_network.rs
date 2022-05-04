@@ -172,4 +172,17 @@ where
             &actual
         )
     }
+
+    pub fn compute_batch_error<
+        S: TrainingSample<CellT, FactoryT>
+    >(
+        &mut self,
+        samples: &[S]
+    ) -> CellT {
+        samples.iter().map(
+            |s| self.compute_sample_error(s)
+        ).reduce(
+            |a, b| a + b
+        ).expect("Cannot compute batch error")
+    }
 }
