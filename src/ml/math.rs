@@ -78,20 +78,20 @@ where
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum CellActivation {
     None,
     ReLu,
     LeakyReLU(f32),
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum LayerActivation {
     None,
     SoftMax,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ErrorFunction {
     None,
     EuclideanDistanceSquared,
@@ -108,6 +108,55 @@ impl CellActivation {
             CellActivation::LeakyReLU(leaking_factor) => x.leaky_relu(
                 NumberFactory::from_scalar(*leaking_factor)
             ),
+        }
+    }
+}
+
+impl LayerActivation {
+    pub fn compute<N: NumberLike<F>, F: NumberFactory<N>>(
+        &self,
+        x: &Vec<N>
+    ) -> Vec<N> {
+        match self {
+            LayerActivation::None => x.clone(),
+            LayerActivation::SoftMax => {
+                let mut sum = F::zero();
+                let mut res = vec![F::zero(); x.len()];
+
+                for (i, v) in x.iter().enumerate() {
+                    let exp = v.exp();
+                    sum += exp;
+                    res[i] = exp;
+                }
+
+                for v in res.iter_mut() {
+                    *v /= sum;
+                }
+
+                res
+            }
+        }
+    }
+}
+
+impl ErrorFunction {
+    pub fn compute<N: NumberLike<F>, F: NumberFactory<N>>(
+        &self,
+        expected: &Vec<N>,
+        actual: &Vec<N>,
+    ) -> N {
+        match self {
+            ErrorFunction::None => panic!("No error function specified for neural network"),
+            ErrorFunction::EuclideanDistanceSquared => {
+                let mut sum = F::zero();
+
+                for (a, e) in actual.iter().zip(expected.iter()) {
+                    let diff = *a - *e;
+                    sum += diff.powi(2);
+                }
+
+                sum
+            }
         }
     }
 }

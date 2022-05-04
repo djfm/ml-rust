@@ -137,7 +137,7 @@ where
         self
     }
 
-    pub fn feed_forward(&mut self, input: &dyn TrainingSample<CellT, FactoryT>) -> Vec<CellT> {
+    pub fn feed_forward(&mut self, input: &dyn TrainingSample<CellT, FactoryT>) -> &Vec<CellT> {
         for (c, i) in self.layers[0].cells.iter_mut().zip(input.get_input()) {
             *c = i;
         }
@@ -154,8 +154,22 @@ where
                 }
                 layer.cells[c] = layer.config.cell_activation.compute(&sum);
             }
+
+            if layer.config.layer_activation != LayerActivation::None {
+                layer.cells = layer.config.layer_activation.compute(&layer.cells);
+            }
         }
 
-        std::unimplemented!()
+        &self.layers.last().unwrap().cells
+    }
+
+    pub fn compute_sample_error(&mut self, sample: &dyn TrainingSample<CellT, FactoryT>) -> CellT {
+        let error_function = self.error_function;
+        let actual = self.feed_forward(sample);
+        let expected = sample.get_expected_one_hot();
+        error_function.compute(
+            &expected,
+            &actual
+        )
     }
 }
