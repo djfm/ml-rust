@@ -57,7 +57,7 @@ impl <
         }
     }
 
-    fn weights_for_cell(&self, neuron_id: usize) -> &[CellT] {
+    pub fn weights_for_cell(&self, neuron_id: usize) -> &[CellT] {
         let weights_per_neuron = self.config.input_size;
         &self.weights[
             neuron_id*weights_per_neuron..(neuron_id+1)*weights_per_neuron

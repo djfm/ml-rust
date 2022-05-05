@@ -1,27 +1,23 @@
-use std::fs::OpenOptions;
-use std::io::BufReader;
-use std::io::Read;
-use std::io::Seek;
 
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
-
-use std::time::{Instant};
-use crossbeam_utils::thread;
-
-use crate::ff_network::{
-    BatchResult,
-    Network,
-    ClassificationExample,
+use std::{
+    collections::hash_map::DefaultHasher,
+    fs::{OpenOptions},
+    hash::{Hash, Hasher},
+    io::{Read, Seek, BufReader},
+    time::{Instant},
 };
 
+use crossbeam_utils::thread;
+
 use crate::{
+    ff_network::{
+        BatchResult,
+        Network,
+        ClassificationExample,
+    },
     activations::{
         NeuronActivation,
         LayerActivation,
-    },
-    graphics::{
-        show_mnist_image,
     },
     util::{
         human_duration

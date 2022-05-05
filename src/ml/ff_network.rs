@@ -1,17 +1,14 @@
 use crate::ml::{
+    Layer,
+    LayerActivation,
+    LayerConfig,
     math::{
         one_hot_label,
-        CellActivation,
         Differentiable,
         ErrorFunction,
-        LayerActivation,
         NumberFactory,
         NumberLike,
     },
-    layer::{
-        Layer,
-        LayerConfig,
-    }
 };
 
 pub struct Network<
@@ -64,10 +61,6 @@ where
         }
     }
 
-    pub fn layers(&self) -> &[Layer<CellT, FactoryT>] {
-        &self.layers
-    }
-
     pub fn add_layer(
         &mut self,
         config: LayerConfig,
@@ -110,14 +103,23 @@ where
             };
 
             for cell_id in 0..n_cells {
-                layer_activations[cell_id] += layer.weights.iter().zip(previous_activations.iter()).map(
-                    |(weight, activation)| *weight * *activation
-                ).reduce(
-                    |acc, x| acc + x
-                ).unwrap();
+                layer_activations[cell_id] += layer
+                    .weights_for_cell(cell_id).iter().zip(
+                        previous_activations.iter()
+                    ).map(
+                        |(weight, activation)| *weight * *activation
+                    ).reduce(
+                        |acc, x| acc + x
+                    ).expect("summation failed");
 
                 layer_activations[cell_id] = layer.config.cell_activation.compute(
                     &layer_activations[cell_id]
+                );
+            }
+
+            if layer.config.layer_activation != LayerActivation::None {
+                layer_activations = layer.config.layer_activation.compute(
+                    &layer_activations
                 );
             }
 

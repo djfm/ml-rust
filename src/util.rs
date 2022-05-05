@@ -39,6 +39,7 @@ mod tests {
         assert_eq!(human_duration(Duration::new(3610, 0)), "1h 10s");
     }
 
+    #[test]
     fn test_ref() {
         let vi: Vec<bool> = Vec::new();
         let mut batches = vec![vi; 4];

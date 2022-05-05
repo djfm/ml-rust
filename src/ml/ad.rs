@@ -92,7 +92,7 @@ impl <'a> AD {
         }
     }
 
-    fn reset(&self) {
+    pub fn reset(&self) {
         self.max_tape_id.replace(0);
         self.gradients.replace(HashMap::new());
         self.tapes.replace(HashMap::new());

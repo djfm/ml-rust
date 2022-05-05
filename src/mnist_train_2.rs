@@ -9,7 +9,6 @@ use crate::{
         LayerConfig,
         TrainingSample,
         TrainingConfig,
-        AD,
         ADNumber,
         ADNumberFactory,
         CellActivation,
