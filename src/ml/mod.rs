@@ -3,10 +3,15 @@ pub mod ad;
 mod scalar_number;
 pub mod math;
 pub mod ff_network;
+mod layer;
 
 pub use crate::ml::{
     math::{
         NumberLike,
+        NumberFactory,
+        CellActivation,
+        LayerActivation,
+        ErrorFunction,
     },
     ad::{
         AD,
@@ -14,6 +19,15 @@ pub use crate::ml::{
     ad_number::{
         ADNumber,
         ADNumberFactory,
+    },
+    ff_network::{
+        Network,
+        TrainingConfig,
+        TrainingSample,
+    },
+    layer::{
+        Layer,
+        LayerConfig,
     },
 };
 

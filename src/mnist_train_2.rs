@@ -5,25 +5,17 @@ use crate::{
         Image,
     },
     ml::{
-        ff_network::{
-            Network,
-            LayerConfig,
-            TrainingSample,
-            TrainingConfig,
-        },
-        ad::{
-            AD,
-        },
-        ad_number::{
-            ADNumber,
-            ADNumberFactory,
-        },
-        math::{
-            CellActivation,
-            LayerActivation,
-            ErrorFunction,
-            NumberFactory,
-        },
+        Network,
+        LayerConfig,
+        TrainingSample,
+        TrainingConfig,
+        AD,
+        ADNumber,
+        ADNumberFactory,
+        CellActivation,
+        LayerActivation,
+        ErrorFunction,
+        NumberFactory,
     },
     util::{
         human_duration,
