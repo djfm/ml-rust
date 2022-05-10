@@ -1,5 +1,8 @@
 use crate::ml::{
     NumberLike,
+    NeuronActivation,
+    LayerActivation,
+    ErrorFunction,
 };
 
 pub trait NumberFactory<N> where N: NumberLike {
@@ -14,4 +17,8 @@ pub trait NumberFactory<N> where N: NumberLike {
     fn exp(&mut self, operand: N) -> N;
 
     fn diff(&mut self, y: N, x: N) -> f32;
+
+    fn activate_neuron(&mut self, neuron: N, activation: &NeuronActivation) -> N;
+    fn activate_layer(&mut self, layer: &Vec<N>, activation: &LayerActivation) -> Vec<N>;
+    fn compute_error(&mut self, expected: &Vec<N>, actual: &Vec<N>, error_function: &ErrorFunction) -> N;
 }
