@@ -61,19 +61,10 @@ impl Tape {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AutoDiff {
     tape: Tape,
     gradients: HashMap<usize, Vec<f32>>,
-}
-
-impl Clone for AutoDiff {
-    fn clone(&self) -> AutoDiff {
-        AutoDiff {
-            tape: self.tape.clone(),
-            gradients: self.gradients.clone(),
-        }
-    }
 }
 
 impl AutoDiff {

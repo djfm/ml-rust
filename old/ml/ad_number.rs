@@ -4,15 +4,8 @@ use std::{
     ops,
 };
 
-use rand::prelude::*;
-
 use crate::ml::{
-    ad::{AD},
-    math::{
-        NumberLike,
-        NumberFactory,
-        Differentiable,
-    },
+    AD,
 };
 
 #[derive(Copy, Clone)]
@@ -22,60 +15,6 @@ pub struct ADNumber<'a> {
     tape_id: usize,
     scalar: f32,
 }
-
-pub struct ADNumberFactory {
-    ad: AD,
-    rng: ThreadRng,
-}
-
-impl <'a> ADNumberFactory {
-    fn get_instance() -> &'a ADNumberFactory {
-        unsafe {
-            match AD_NUMBER_FACTORY {
-                Some(ref factory) => factory,
-                None => {
-                    let factory = ADNumberFactory {
-                        ad: AD::new(),
-                        rng: thread_rng(),
-                    };
-                    AD_NUMBER_FACTORY = Some(factory);
-                    AD_NUMBER_FACTORY.as_ref().unwrap()
-                }
-            }
-        }
-    }
-
-    fn get_instance_mut() -> &'a mut ADNumberFactory {
-        unsafe {
-            AD_NUMBER_FACTORY.get_or_insert(ADNumberFactory {
-                ad: AD::new(),
-                rng: thread_rng(),
-            })
-        }
-    }
-}
-
-impl <'a> NumberFactory<ADNumber<'a>> for ADNumberFactory {
-    fn zero() -> ADNumber<'a> {
-        ADNumber::new(0, 0, None, 0.0)
-    }
-
-    fn one() -> ADNumber<'a> {
-        ADNumber::new(0, 0, None, 1.0)
-    }
-
-    fn small_rand() -> ADNumber<'a> {
-        let factory = ADNumberFactory::get_instance_mut();
-        let scalar = factory.rng.gen::<f32>();
-        factory.ad.create_variable(scalar)
-    }
-
-    fn from_scalar(scalar: f32) -> ADNumber<'a> {
-        ADNumberFactory::get_instance().ad.create_variable(scalar)
-    }
-}
-
-static mut AD_NUMBER_FACTORY: Option<ADNumberFactory> = None;
 
 impl std::fmt::Debug for ADNumber<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -93,7 +32,7 @@ impl <'a> ADNumber<'a> {
         ADNumber {
             tape_id,
             id,
-            ad: if ad.is_none() { Some(AD::get_instance()) } else { ad },
+            ad: None,
             scalar,
         }
     }
@@ -106,7 +45,7 @@ impl <'a> ADNumber<'a> {
         self.tape_id
     }
 
-    pub fn ad(&self) -> &AD {
+    pub fn ad(&'a self) -> &'a AD {
         self.ad
             .expect(
                 "ADNumber should have an AD instance reference"
@@ -133,8 +72,8 @@ impl <'a> ADNumber<'a> {
     }
 }
 
-impl <'a> NumberLike<ADNumberFactory> for ADNumber<'a> {
-    fn exp(&self) -> ADNumber<'a> {
+impl <'a> ADNumber<'a> {
+    pub fn exp(&self) -> ADNumber<'a> {
         let exp = self.scalar.exp();
         self.ad.expect("missing AD instance reference")
             .create_unary_composite(
@@ -142,7 +81,7 @@ impl <'a> NumberLike<ADNumberFactory> for ADNumber<'a> {
             )
     }
 
-    fn log(&self, base: f32) -> Self {
+    pub fn log(&self, base: f32) -> Self {
         let log = self.scalar.log(base);
         self.ad.expect("missing AD instance reference")
             .create_unary_composite(
@@ -150,7 +89,7 @@ impl <'a> NumberLike<ADNumberFactory> for ADNumber<'a> {
             )
     }
 
-    fn powi(&self, operand: i32) -> Self {
+    pub fn powi(&self, operand: i32) -> Self {
         self.ad.expect("missing AD instance reference")
             .create_unary_composite(
                 self, self.scalar.powi(operand),
@@ -158,7 +97,7 @@ impl <'a> NumberLike<ADNumberFactory> for ADNumber<'a> {
             )
     }
 
-    fn powf(&self, operand: f32) -> Self {
+    pub fn powf(&self, operand: f32) -> Self {
         self.ad.expect("missing AD instance reference")
             .create_unary_composite(
                 self, self.scalar.powf(operand),
@@ -166,7 +105,7 @@ impl <'a> NumberLike<ADNumberFactory> for ADNumber<'a> {
             )
     }
 
-    fn sin(&self) -> Self {
+    pub fn sin(&self) -> Self {
         let sin = self.scalar.sin();
         self.ad.expect("missing AD instance reference")
             .create_unary_composite(
@@ -174,7 +113,7 @@ impl <'a> NumberLike<ADNumberFactory> for ADNumber<'a> {
             )
     }
 
-    fn cos(&self) -> Self {
+    pub fn cos(&self) -> Self {
         let cos = self.scalar.cos();
         self.ad.expect("missing AD instance reference")
             .create_unary_composite(
@@ -182,7 +121,7 @@ impl <'a> NumberLike<ADNumberFactory> for ADNumber<'a> {
             )
     }
 
-    fn tan(&self) -> Self {
+    pub fn tan(&self) -> Self {
         let tan = self.scalar.tan();
         self.ad.expect("missing AD instance reference")
             .create_unary_composite(
@@ -190,7 +129,7 @@ impl <'a> NumberLike<ADNumberFactory> for ADNumber<'a> {
             )
     }
 
-    fn asin(&self) -> Self {
+    pub fn asin(&self) -> Self {
         let asin = self.scalar.asin();
         self.ad.expect("missing AD instance reference")
             .create_unary_composite(
@@ -198,7 +137,7 @@ impl <'a> NumberLike<ADNumberFactory> for ADNumber<'a> {
             )
     }
 
-    fn acos(&self) -> Self {
+    pub fn acos(&self) -> Self {
         let acos = self.scalar.acos();
         self.ad.expect("missing AD instance reference")
             .create_unary_composite(
@@ -206,7 +145,7 @@ impl <'a> NumberLike<ADNumberFactory> for ADNumber<'a> {
             )
     }
 
-    fn atan(&self) -> Self {
+    pub fn atan(&self) -> Self {
         let atan = self.scalar.atan();
         self.ad.expect("missing AD instance reference")
             .create_unary_composite(
@@ -214,7 +153,7 @@ impl <'a> NumberLike<ADNumberFactory> for ADNumber<'a> {
             )
     }
 
-    fn sinh(&self) -> Self {
+    pub fn sinh(&self) -> Self {
         let sinh = self.scalar.sinh();
         self.ad.expect("missing AD instance reference")
             .create_unary_composite(
@@ -222,7 +161,7 @@ impl <'a> NumberLike<ADNumberFactory> for ADNumber<'a> {
             )
     }
 
-    fn cosh(&self) -> Self {
+    pub fn cosh(&self) -> Self {
         let cosh = self.scalar.cosh();
         self.ad.expect("missing AD instance reference")
             .create_unary_composite(
@@ -230,7 +169,7 @@ impl <'a> NumberLike<ADNumberFactory> for ADNumber<'a> {
             )
     }
 
-    fn tanh(&self) -> Self {
+    pub fn tanh(&self) -> Self {
         let tanh = self.scalar.tanh();
         self.ad.expect("missing AD instance reference")
             .create_unary_composite(
@@ -238,7 +177,7 @@ impl <'a> NumberLike<ADNumberFactory> for ADNumber<'a> {
             )
     }
 
-    fn asinh(&self) -> Self {
+    pub fn asinh(&self) -> Self {
         let asinh = self.scalar.asinh();
         self.ad.expect("missing AD instance reference")
             .create_unary_composite(
@@ -246,7 +185,7 @@ impl <'a> NumberLike<ADNumberFactory> for ADNumber<'a> {
             )
     }
 
-    fn acosh(&self) -> Self {
+    pub fn acosh(&self) -> Self {
         let acosh = self.scalar.acosh();
         self.ad.expect("missing AD instance reference")
             .create_unary_composite(
@@ -254,7 +193,7 @@ impl <'a> NumberLike<ADNumberFactory> for ADNumber<'a> {
             )
     }
 
-    fn atanh(&self) -> Self {
+    pub fn atanh(&self) -> Self {
         let atanh = self.scalar.atanh();
         self.ad.expect("missing AD instance reference")
             .create_unary_composite(
@@ -262,7 +201,7 @@ impl <'a> NumberLike<ADNumberFactory> for ADNumber<'a> {
             )
     }
 
-    fn sqrt(&self) -> Self {
+    pub fn sqrt(&self) -> Self {
         let sqrt = self.scalar.sqrt();
         self.ad.expect("missing AD instance reference")
             .create_unary_composite(
@@ -270,7 +209,7 @@ impl <'a> NumberLike<ADNumberFactory> for ADNumber<'a> {
             )
     }
 
-    fn cbrt(&self) -> Self {
+    pub fn cbrt(&self) -> Self {
         let cbrt = self.scalar.cbrt();
         self.ad.expect("missing AD instance reference")
             .create_unary_composite(
@@ -279,7 +218,7 @@ impl <'a> NumberLike<ADNumberFactory> for ADNumber<'a> {
             )
     }
 
-    fn abs(&self) -> Self {
+    pub fn abs(&self) -> Self {
         let abs = self.scalar.abs();
         self.ad.expect("missing AD instance reference")
             .create_unary_composite(
@@ -345,7 +284,7 @@ impl <'a> ops::Sub<f32> for ADNumber<'a> {
 
 impl <'a> ops::SubAssign<ADNumber<'a>> for ADNumber<'a> {
     fn sub_assign(&mut self, other: ADNumber<'a>) {
-        *self = *self + other;
+        *self = *self - other;
     }
 }
 
@@ -417,11 +356,5 @@ impl <'a> ops::Div<f32> for ADNumber<'a> {
 impl <'a> ops::DivAssign<ADNumber<'a>> for ADNumber<'a> {
     fn div_assign(&mut self, other: ADNumber<'a>) {
         *self = *self / other;
-    }
-}
-
-impl <'a> Differentiable<ADNumber<'a>, ADNumberFactory> for ADNumber<'a> {
-    fn diff(&self, wrt: &ADNumber<'a>) -> f32 {
-        self.diff(wrt)
     }
 }

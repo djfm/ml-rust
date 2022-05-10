@@ -7,6 +7,8 @@ use super::ad_number::{
     ADNumber,
 };
 
+use rand::prelude::*;
+
 #[derive(Debug)]
 struct PartialDerivative {
     with_respect_to_id: usize,
@@ -29,6 +31,7 @@ pub struct AD {
     tapes: RefCell<HashMap<usize, Tape>>,
     max_tape_id: RefCell<usize>,
     gradients: RefCell<GradientsMap>,
+    rng: RefCell<ThreadRng>,
 }
 
 impl PartialDerivative {
@@ -71,24 +74,14 @@ impl std::fmt::Debug for AD {
     }
 }
 
-static mut AD_INSTANCE: Option<AD> = None;
-
-impl <'a> AD {
+impl <'a> AD
+{
     pub fn new() -> AD {
         AD {
             tapes: RefCell::new(vec![(1, Tape::new())].into_iter().collect()),
             max_tape_id: RefCell::new(0),
             gradients: RefCell::new(HashMap::new()),
-        }
-    }
-
-    pub fn get_instance() -> &'a AD {
-        unsafe {
-            if AD_INSTANCE.is_none() {
-                    AD_INSTANCE = Some(AD::new());
-            }
-
-            AD_INSTANCE.as_ref().unwrap()
+            rng: RefCell::new(thread_rng()),
         }
     }
 
@@ -125,6 +118,10 @@ impl <'a> AD {
         tape.records.push(TapeRecord::new());
 
         ADNumber::new(tape_id, id, Some(self), scalar)
+    }
+
+    pub fn create_random_variable(&self) -> ADNumber {
+        self.create_variable(self.rng.borrow_mut().gen())
     }
 
     pub fn create_binary_composite(

@@ -1,25 +1,20 @@
 use crate::ml::{
+    AD,
+    ADNumber,
     Layer,
     LayerActivation,
+    ErrorFunction,
     LayerConfig,
     math::{
         one_hot_label,
-        Differentiable,
-        ErrorFunction,
-        NumberFactory,
-        NumberLike,
-    },
+    }
 };
 
-pub struct Network<
-    CellT, FactoryT
-> where
-        FactoryT: NumberFactory<CellT>,
-        CellT: NumberLike<FactoryT>,
+pub struct Network<'a>
 {
-    layers: Vec<Layer<CellT, FactoryT>>,
+    nf: AD,
+    layers: Vec<Layer<'a>>,
     error_function: ErrorFunction,
-    phantom: std::marker::PhantomData<FactoryT>,
 }
 
 pub struct TrainingConfig {
@@ -38,47 +33,64 @@ impl TrainingConfig {
     }
 }
 
-pub trait TrainingSample<T, F>
-where
-    T: NumberLike<F>,
-    F: NumberFactory<T>,
+pub trait TrainingSample<'a>
 {
-    fn get_input(&self) -> Vec<T>;
+    fn get_input(&'a self, nf: &'a AD) -> Vec<ADNumber<'a>>;
     fn get_label(&self) -> usize;
-    fn get_expected_one_hot(&self) -> Vec<T>;
+    fn get_expected_one_hot(&'a self, nf: &'a AD) -> Vec<ADNumber<'a>>;
 }
 
-impl <CellT, FactoryT> Network<CellT, FactoryT>
-where
-    CellT: NumberLike<FactoryT>,
-    FactoryT: NumberFactory<CellT>,
+impl <'a> Network<'a>
 {
-    pub fn new() -> Self {
+    pub fn new(nf: AD) -> Self {
         Network {
+            nf,
             layers: Vec::new(),
             error_function: ErrorFunction::EuclideanDistanceSquared,
-            phantom: std::marker::PhantomData,
         }
     }
 
+    pub fn nf(&self) -> &AD {
+        &self.nf
+    }
+
     pub fn add_layer(
-        &mut self,
+        &'a mut self,
         config: LayerConfig,
     ) -> &mut Self {
         if self.layers.is_empty() && config.input_size == 0 {
             panic!("Input size must be specified for the first layer");
         }
 
-        self.layers.push(
-            Layer::new(
-                &config,
-                if self.layers.len() > 0 {
-                    self.layers.last().unwrap().config.layer_size
-                } else {
-                    config.input_size
-                }
-            )
-        );
+        let input_size = if self.layers.is_empty() {
+            config.input_size
+        } else {
+            self.layers.last().expect("there should be an input layer").config.input_size
+        };
+
+        let nf = &self.nf;
+        let weights = (0..config.layer_size*input_size).into_iter().map(
+            |_| nf.create_random_variable()
+        ).collect::<Vec<ADNumber<'a>>>();
+
+        let biases = if config.has_biases {
+            vec![
+                self.nf.create_constant(0.0);
+                config.layer_size
+            ]
+        } else {
+            vec![]
+        };
+
+        let layer = Layer {
+            weights, biases,
+            config: LayerConfig {
+                input_size,
+                ..config.clone()
+            },
+        };
+
+        self.layers.push(layer);
 
         self
     }
@@ -91,19 +103,19 @@ where
         self
     }
 
-    pub fn feed_forward(&self, input: &dyn TrainingSample<CellT, FactoryT>) -> Vec<CellT> {
-        let mut previous_activations = input.get_input();
+    pub fn feed_forward(&'a self, input: &'a dyn TrainingSample<'a>) -> Vec<ADNumber<'a>> {
+        let mut previous_activations = input.get_input(&self.nf);
 
         for layer in self.layers.iter().skip(1) {
             let n_cells = layer.config.layer_size;
             let mut layer_activations = if layer.config.has_biases {
                 layer.biases.clone()
             } else {
-                vec![FactoryT::zero(); n_cells]
+                vec![self.nf.create_constant(0.0); n_cells]
             };
 
             for cell_id in 0..n_cells {
-                layer_activations[cell_id] += layer
+                let cell = layer
                     .weights_for_cell(cell_id).iter().zip(
                         previous_activations.iter()
                     ).map(
@@ -112,31 +124,33 @@ where
                         |acc, x| acc + x
                     ).expect("summation failed");
 
-                layer_activations[cell_id] = layer.config.cell_activation.compute(
-                    &layer_activations[cell_id]
-                );
+                let activated = layer.config.cell_activation.compute(&cell);
+
+                layer_activations[cell_id] += activated;
+
             }
 
             if layer.config.layer_activation != LayerActivation::None {
-                layer_activations = layer.config.layer_activation.compute(
+                previous_activations = layer.config.layer_activation.compute(
                     &layer_activations
                 );
+            } else {
+                previous_activations = layer_activations;
             }
 
-            previous_activations = layer_activations;
         }
 
         previous_activations
     }
 
-    pub fn predict(&mut self, input: &dyn TrainingSample<CellT, FactoryT>) -> usize {
+    pub fn predict(&'a self, input: &'a dyn TrainingSample<'a>) -> usize {
         one_hot_label(&self.feed_forward(input))
     }
 
-    pub fn compute_sample_error(&mut self, sample: &dyn TrainingSample<CellT, FactoryT>) -> CellT {
+    pub fn compute_sample_error(&'a self, sample: &'a dyn TrainingSample<'a>) -> ADNumber<'a> {
         let error_function = self.error_function;
         let actual = self.feed_forward(sample);
-        let expected = sample.get_expected_one_hot();
+        let expected = sample.get_expected_one_hot(&self.nf);
         error_function.compute(
             &expected,
             &actual
@@ -144,21 +158,25 @@ where
     }
 
     pub fn compute_batch_error<
-        S: TrainingSample<CellT, FactoryT>
+        S: TrainingSample<'a>
     >(
-        &mut self,
-        samples: &[S]
-    ) -> CellT {
-        let batch_size = FactoryT::from_scalar(samples.len() as f32);
+        &'a self,
+        samples: &'a [S]
+    ) -> ADNumber<'a> {
+        let batch_size = self.nf.create_constant(samples.len() as f32);
 
-        samples.iter().map(
-            |s| self.compute_sample_error(s)
-        ).reduce(
-            |a, b| a + b
-        ).expect("Cannot compute batch error") / batch_size
+        let mut error = self.nf.create_constant(0.0);
+
+        for s in samples.iter() {
+            error += self.compute_sample_error(s);
+        }
+
+        error / batch_size
     }
 
-    pub fn compute_accuracy<S: TrainingSample<CellT, FactoryT>>(&mut self, samples: &[S]) -> f32 {
+    pub fn compute_accuracy<
+            S: TrainingSample<'a>
+    >(&'a mut self, samples: &'a [S]) -> f32 {
         let mut correct = 0;
 
         for s in samples {
@@ -169,20 +187,18 @@ where
 
         100.0 * correct as f32 / samples.len() as f32
     }
-}
 
-impl <'a, N: NumberLike<F> + Differentiable<N, F>, F: NumberFactory<N>> Network<N, F> {
-    pub fn back_propagate(&mut self, error: &N, tconf: &TrainingConfig) -> &mut Self {
+    pub fn back_propagate(&'a mut self, error: &ADNumber<'a>, tconf: &TrainingConfig) -> &'a mut Self {
         for layer in self.layers.iter_mut() {
             for weight in layer.weights.iter_mut() {
                 let delta = error.diff(weight) * tconf.learning_rate;
-                *weight -= F::from_scalar(delta);
+                *weight -= self.nf.create_constant(delta);
             }
 
             if layer.config.has_biases {
                 for bias in layer.biases.iter_mut() {
                     let delta = error.diff(bias) * tconf.learning_rate;
-                    *bias -= F::from_scalar(delta);
+                    *bias -= self.nf.create_constant(delta);
                 }
             }
         }

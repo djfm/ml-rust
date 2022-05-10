@@ -1,20 +1,16 @@
 use crate::ml::{
+    AD, ADNumber,
     math::{
-        NumberLike,
-        NumberFactory,
         LayerActivation,
         CellActivation,
     },
+    Network,
 };
 
-pub struct Layer<
-    CellT: NumberLike<Factory>,
-    Factory: NumberFactory<CellT>,
-> {
-    pub weights: Vec<CellT>,
-    pub biases: Vec<CellT>,
+pub struct Layer<'a> {
+    pub weights: Vec<ADNumber<'a>>,
+    pub biases: Vec<ADNumber<'a>>,
     pub config: LayerConfig,
-    phantom: std::marker::PhantomData<Factory>,
 }
 
 #[derive(Copy, Clone)]
@@ -26,38 +22,37 @@ pub struct LayerConfig {
     pub has_biases: bool,
 }
 
-impl <
-    CellT: NumberLike<FactoryT>,
-    FactoryT: NumberFactory<CellT>,
-> Layer<CellT, FactoryT> {
+impl <'a> Layer<'a> {
     pub fn new(
+        network: &'a Network,
         config: &LayerConfig,
         input_size: usize,
     ) -> Self {
+        let nf = network.nf();
+
         let weights = (0..config.layer_size*input_size).map(
-            |_| FactoryT::small_rand()
+            |_| nf.create_random_variable()
         ).collect();
 
         let biases = if config.has_biases {
             vec![
-                FactoryT::zero();
+                nf.create_constant(0.0);
                 config.layer_size
             ]
         } else {
             vec![]
         };
 
-        Layer {
+        Self {
             weights, biases,
             config: LayerConfig {
                 input_size,
                 ..*config
             },
-            phantom: std::marker::PhantomData,
         }
     }
 
-    pub fn weights_for_cell(&self, neuron_id: usize) -> &[CellT] {
+    pub fn weights_for_cell(&self, neuron_id: usize) -> &[ADNumber] {
         let weights_per_neuron = self.config.input_size;
         &self.weights[
             neuron_id*weights_per_neuron..(neuron_id+1)*weights_per_neuron

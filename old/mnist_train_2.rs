@@ -5,16 +5,15 @@ use crate::{
         Image,
     },
     ml::{
+        AD,
         Network,
         LayerConfig,
         TrainingSample,
         TrainingConfig,
         ADNumber,
-        ADNumberFactory,
         CellActivation,
         LayerActivation,
         ErrorFunction,
-        NumberFactory,
     },
     util::{
         human_duration,
@@ -25,26 +24,30 @@ use std::time::{
     Instant
 };
 
-impl <'a> TrainingSample<ADNumber<'a>, ADNumberFactory> for Image {
-    fn get_input(&self) -> Vec<ADNumber<'a>> {
-        self.pixels.iter().map(
-            |pixel| ADNumberFactory::from_scalar(*pixel as f32 / 255.0)
-        ).collect()
+impl <'a> TrainingSample<'a> for Image {
+    fn get_input(&'a self, nf: &'a AD) -> Vec<ADNumber<'a>> {
+        let mut res = Vec::new();
+
+        for pixel in self.pixels.iter() {
+            res.push(nf.create_variable(*pixel as f32 / 255.0));
+        }
+
+        res
     }
 
     fn get_label(&self) -> usize {
         self.label as usize
     }
 
-    fn get_expected_one_hot(&self) -> Vec<ADNumber<'a>> {
-        let mut expected = vec![ADNumberFactory::zero(); 10];
-        expected[self.label as usize] = ADNumberFactory::one();
+    fn get_expected_one_hot(&'a self, nf: &'a AD) -> Vec<ADNumber<'a>> {
+        let mut expected = vec![nf.create_constant(0.0); 10];
+        expected[self.label as usize] = nf.create_constant(1.0);
         expected
     }
 }
 
-pub fn create_network<'a>() -> Network<ADNumber<'a>, ADNumberFactory> {
-    let mut network = Network::new();
+pub fn create_network<'a>() -> Network<'a> {
+    let mut network = Network::new(AD::new());
 
     network
         .add_layer(
