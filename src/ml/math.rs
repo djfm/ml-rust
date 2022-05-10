@@ -1,5 +1,5 @@
 #[derive(Copy, Clone, Debug)]
-pub enum SingleActivation {
+pub enum NeuronActivation {
     None,
     Relu,
     LeakyReLU(f32),
@@ -13,5 +13,5 @@ pub enum LayerActivation {
 
 #[derive(Copy, Clone, Debug)]
 pub enum ErrorFunction {
-    SoftMax,
+    EuclideanDistanceSquared,
 }

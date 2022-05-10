@@ -1,30 +1,16 @@
 
 use std::{
-    collections::hash_map::DefaultHasher,
     fs::{OpenOptions},
-    hash::{Hash, Hasher},
     io::{Read, Seek, BufReader},
-    time::{Instant},
 };
-
-use crossbeam_utils::thread;
 
 use crate::{
     ml::ClassificationExample
 };
 
-#[derive(Hash)]
 pub struct Image {
     pub pixels: Vec<u8>,
     pub label: u8,
-}
-
-impl Image {
-    pub fn calculate_hash(&self) -> u64 {
-        let mut hasher = DefaultHasher::new();
-        self.hash(&mut hasher);
-        hasher.finish()
-    }
 }
 
 impl ClassificationExample for Image {
