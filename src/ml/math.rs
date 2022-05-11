@@ -1,17 +1,17 @@
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum NeuronActivation {
     None,
-    Relu,
+    ReLu,
     LeakyReLU(f32),
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum LayerActivation {
     None,
     SoftMax,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum ErrorFunction {
     EuclideanDistanceSquared,
 }

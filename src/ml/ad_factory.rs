@@ -3,6 +3,7 @@ use std::collections::HashMap;
 
 use crate::ml::{
     NumberFactory,
+    DifferentiableNumberFactory,
     ADNumber,
     NeuronActivation,
     LayerActivation,
@@ -195,68 +196,11 @@ impl NumberFactory<ADNumber> for ADFactory {
             operand.scalar().exp(),
         )
     }
+}
 
+impl DifferentiableNumberFactory<ADNumber> for ADFactory {
     fn diff(&mut self, y: ADNumber, x: ADNumber) -> f32 {
         self.diff(y, x)
-    }
-
-    fn activate_neuron(&mut self, x: ADNumber, activation: &NeuronActivation) -> ADNumber {
-        match activation {
-            NeuronActivation::None => x,
-            NeuronActivation::Relu => {
-                if x.scalar() > 0.0 {
-                    x
-                } else {
-                    self.create_variable(0.0)
-                }
-            },
-            NeuronActivation::LeakyReLU(alpha) => {
-                if x.scalar() < 0.0 {
-                    self.create_variable(*alpha)
-                } else {
-                    x
-                }
-            }
-
-        }
-    }
-
-    fn activate_layer(&mut self, vec: &Vec<ADNumber>, activation: &LayerActivation) -> Vec<ADNumber> {
-        match activation {
-            LayerActivation::None => vec.clone(),
-            LayerActivation::SoftMax => {
-                let mut res = vec![self.create_variable(0.0); vec.len()];
-
-                let mut sum = self.create_variable(0.0);
-                for (i, v) in vec.iter().enumerate() {
-                    let exp = self.exp(*v);
-                    res[i] = exp;
-                    sum = self.addition(sum, exp);
-                }
-
-                for v in res.iter_mut() {
-                    *v = self.divide(*v, sum);
-                }
-
-                res
-            }
-        }
-    }
-
-    fn compute_error(&mut self, expected: &Vec<ADNumber>, actual: &Vec<ADNumber>, error_function: &ErrorFunction) -> ADNumber {
-        match error_function {
-            ErrorFunction::EuclideanDistanceSquared => {
-                let mut sum = self.create_variable(0.0);
-
-                for (e, a) in expected.iter().zip(actual.iter()) {
-                    let diff = self.subtract(*e, *a);
-                    let square = self.multiply(diff, diff);
-                    sum = self.addition(sum, square);
-                }
-
-                sum
-            }
-        }
     }
 }
 

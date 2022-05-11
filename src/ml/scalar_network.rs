@@ -4,6 +4,9 @@ use crate::ml::{
     NeuronActivation,
     LayerActivation,
     ErrorFunction,
+    ClassificationExample,
+    NumberFactory,
+    FloatFactory,
 };
 
 pub struct LayerConfig {
@@ -50,6 +53,14 @@ impl ScalarNetwork {
         }
     }
 
+    pub fn params(&mut self) -> &mut Vec<f32> {
+        &mut self.params
+    }
+
+    pub fn params_count(&self) -> usize {
+        self.params.len()
+    }
+
     pub fn weights(&self, layer: usize, neuron: usize) -> &[f32] {
         let prev_size = if layer == 0 {
             self.input_size
@@ -72,5 +83,66 @@ impl ScalarNetwork {
         } else {
             None
         }
+    }
+
+    pub fn bias_value(&self, layer: usize, neuron: usize) -> f32 {
+        match self.bias(layer, neuron) {
+            Some(bias) => bias,
+            None => 0.0,
+        }
+    }
+
+    pub fn layers_count(&self) -> usize {
+        self.layers.len()
+    }
+
+    pub fn layer_config(&self, layer: usize) -> &LayerConfig {
+        &self.layers[layer]
+    }
+
+    pub fn error_function(&self) -> ErrorFunction {
+        self.error_function
+    }
+
+    pub fn predict(&self, input: &dyn ClassificationExample) -> usize {
+        let mut ff = FloatFactory::new();
+
+        let mut previous_activations = input.get_input();
+
+        for l in 0..self.layers.len() {
+            let config = &self.layers[l];
+            let activations = (0..config.neurons_count).into_iter().map(
+                |n| {
+                    let a = self.bias_value(l, n) +
+                    self.weights(l, n).iter().zip(
+                        previous_activations.iter()
+                    ).fold(0.0, |acc, (w, x)| acc + w * x);
+
+                    ff.activate_neuron(a, &config.neuron_activation)
+                }
+            ).collect::<Vec<f32>>();
+
+            previous_activations = if config.layer_activation == LayerActivation::None {
+                activations
+            } else {
+                ff.activate_layer(&activations, &config.layer_activation)
+            }
+        }
+
+        ff.get_max_value(&previous_activations)
+    }
+
+    pub fn compute_batch_error<T: ClassificationExample>(&self, examples: &[T]) -> f32 {
+        let mut correct = 0;
+        let total = examples.len();
+
+        for example in examples {
+            let prediction = self.predict(example);
+            if prediction == example.get_label() {
+                correct += 1;
+            }
+        }
+
+        100.0 * correct as f32 / total as f32
     }
 }
