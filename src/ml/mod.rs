@@ -6,6 +6,8 @@ mod math;
 mod mnist;
 mod ad_factory;
 mod ad_number;
+pub mod mnist_train;
+pub mod scalar_network;
 
 pub use number_factory::{
     NumberFactory,

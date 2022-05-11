@@ -14,7 +14,7 @@ pub struct LayerConfig {
 }
 
 impl LayerConfig {
-    fn new(neurons_count: usize) -> Self {
+    pub fn new(neurons_count: usize) -> Self {
         LayerConfig {
             neurons_count,
             neuron_activation: NeuronActivation::LeakyReLU(0.01),
