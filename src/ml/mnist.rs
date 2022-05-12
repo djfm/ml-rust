@@ -5,7 +5,11 @@ use std::{
 };
 
 use crate::{
-    ml::ClassificationExample
+    ml::{
+        ClassificationExample,
+        NumberFactory,
+        FloatFactory,
+    },
 };
 
 pub struct Image {
@@ -146,4 +150,16 @@ pub fn load_testing_set() -> Result<Vec<Image>, String> {
         "mnist/t10k-images.idx3-ubyte",
         "mnist/t10k-labels.idx1-ubyte"
     )
+}
+
+#[test]
+fn test_image() {
+    let mut ff = FloatFactory::new();
+    let img = &load_training_set().unwrap()[0];
+    let input = img.get_input();
+    let label = img.get_label();
+    let mut one_hot = vec![0.0; input.len()];
+    one_hot[label] = 1.0;
+    let index = ff.get_max_value(&one_hot);
+    assert_eq!(label, index);
 }

@@ -1,12 +1,19 @@
+use std::time::{
+    Instant,
+};
+
 use crate::ml::{
     DifferentiableNumberFactory,
     NumberFactory,
-    NumberLike,
     ADFactory, ADNumber,
     ClassificationExample,
     scalar_network::{
         ScalarNetwork,
-    }
+    },
+    util::{
+        human_duration,
+        windows,
+    },
 };
 
 pub struct TrainingConfig {
@@ -64,6 +71,14 @@ pub fn compute_params_diffs(network: &ScalarNetwork, sample: &dyn Classification
 
     let error = ad.compute_error(&expected, &previous_activations, &network.error_function());
 
+    if params.len() != network.params_count() {
+        panic!(
+            "params.len() ({}) != network.params_count() ({})",
+            params.len(),
+            network.params_count()
+        );
+    }
+
     params.iter().map(|x| ad.diff(error, *x)).collect()
 }
 
@@ -96,4 +111,36 @@ pub fn update_network(
     for (p, d) in network.params().iter_mut().zip(diffs.iter()) {
         *p -= training_config.learning_rate * *d;
     }
+}
+
+pub fn train_scalar_network<'a, T>(
+    network: &'a mut ScalarNetwork,
+    tconf: &TrainingConfig,
+    training: &[T],
+    testing: &[T],
+) -> &'a mut ScalarNetwork where T: ClassificationExample {
+    let start = Instant::now();
+    let mut processed = 0;
+    let total = training.len() * tconf.epochs;
+
+    for epoch in 1..=tconf.epochs {
+        for batch in windows(training, tconf.batch_size) {
+            let diffs = compute_batch_diffs(&network, batch);
+            update_network(network, &tconf, &diffs);
+            processed += batch.len();
+            let accuracy = network.compute_batch_accuracy(batch);
+            println!(
+                "epoch {}/{}: {}={:.2}% processed. Batch size is {}, batch accuracy: {:.2}%",
+                epoch, tconf.epochs,
+                processed, 100.0 * processed as f32 / total as f32,
+                batch.len(),
+                accuracy,
+            );
+        }
+        let testing_accuracy = network.compute_batch_accuracy(&testing);
+        println!("Testing accuracy after epoch {}: {:.2}%", epoch, testing_accuracy);
+    }
+
+    println!("Training finished in {:?}", human_duration(start.elapsed()));
+    network
 }

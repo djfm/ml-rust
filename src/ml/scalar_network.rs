@@ -33,7 +33,7 @@ impl ScalarNetwork {
         params_offsets.push(0);
 
         for layer in &layers {
-            let size = prev_size * layer.neurons_count + if layer.use_biases { 1 } else { 0 };
+            let size = (prev_size + if layer.use_biases { 1 } else { 0 }) * layer.neurons_count ;
 
             for _ in 0..size {
                 params.push(rng.gen());
@@ -120,7 +120,7 @@ impl ScalarNetwork {
 
                     ff.activate_neuron(a, &config.neuron_activation)
                 }
-            ).collect::<Vec<f32>>();
+            ).collect::<Vec<_>>();
 
             previous_activations = if config.layer_activation == LayerActivation::None {
                 activations
@@ -132,7 +132,7 @@ impl ScalarNetwork {
         ff.get_max_value(&previous_activations)
     }
 
-    pub fn compute_batch_error<T: ClassificationExample>(&self, examples: &[T]) -> f32 {
+    pub fn compute_batch_accuracy<T: ClassificationExample>(&self, examples: &[T]) -> f32 {
         let mut correct = 0;
         let total = examples.len();
 

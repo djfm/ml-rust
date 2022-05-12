@@ -8,8 +8,7 @@ use crate::ml::{
     ErrorFunction,
     trainer::{
         TrainingConfig,
-        compute_batch_diffs,
-        update_network,
+        train_scalar_network,
     },
     mnist::{
         load_training_set,
@@ -17,9 +16,10 @@ use crate::ml::{
     },
 };
 
-pub fn create_mnist_scalar_network() -> ScalarNetwork {
+pub fn create_network() -> ScalarNetwork {
     ScalarNetwork::new(
-        28 * 28, ErrorFunction::EuclideanDistanceSquared,
+        28 * 28,
+        ErrorFunction::EuclideanDistanceSquared,
         vec![
             LayerConfig {
                 neurons_count: 32,
@@ -30,16 +30,16 @@ pub fn create_mnist_scalar_network() -> ScalarNetwork {
             LayerConfig {
                 neurons_count: 10,
                 layer_activation: LayerActivation::SoftMax,
-                neuron_activation: NeuronActivation::LeakyReLU(0.01),
-                use_biases: true,
+                neuron_activation: NeuronActivation::None,
+                use_biases: false,
             }
         ],
     )
 }
 
-pub fn train() {
+pub fn train() -> ScalarNetwork {
     let tconf = TrainingConfig::new();
-    let mut network = create_mnist_scalar_network();
+    let mut network = create_network();
 
     let training_set = match load_training_set() {
         Ok(set) => set,
@@ -57,28 +57,14 @@ pub fn train() {
         }
     };
 
-    let mut processed = 0;
-    let total = training_set.len() * tconf.epochs;
+    train_scalar_network(&mut network, &tconf, &training_set, &testing_set);
 
-    for epoch in 1..=tconf.epochs {
-        for batch in training_set.windows(tconf.batch_size) {
-            let diffs = compute_batch_diffs(&network, batch);
-            update_network(&mut network, &tconf, &diffs);
-            processed += batch.len();
-            let error = network.compute_batch_error(batch);
-            println!(
-                "epoch {}: {:.2}% processed. Batch error: {:.2}",
-                epoch,
-                100.0 * processed as f32 / total as f32,
-                error,
-            );
-        }
-    }
+    network
 }
 
 #[test]
 fn test_mnist_scalar_network() {
-    let network = create_mnist_scalar_network();
+    let network = create_network();
     assert_eq!(network.weights(0, 0).len(), 28 * 28);
     assert_eq!(network.weights(0, 31).len(), 28 * 28);
     assert_eq!(network.weights(1, 4).len(), 32);

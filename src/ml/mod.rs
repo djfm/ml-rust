@@ -10,6 +10,7 @@ mod float_factory;
 pub mod mnist_train;
 pub mod scalar_network;
 pub mod trainer;
+pub mod util;
 
 pub use number_factory::{
     NumberFactory,
