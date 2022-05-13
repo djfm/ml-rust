@@ -4,6 +4,7 @@ use std::{
     io::{Read, Seek, BufReader},
 };
 
+
 use crate::{
     ml::{
         ClassificationExample,
@@ -160,6 +161,6 @@ fn test_image() {
     let label = img.get_label();
     let mut one_hot = vec![0.0; input.len()];
     one_hot[label] = 1.0;
-    let index = ff.get_max_value(&one_hot);
+    let index = ff.get_label(&one_hot);
     assert_eq!(label, index);
 }

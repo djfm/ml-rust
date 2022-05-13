@@ -25,7 +25,6 @@ impl ADNumber {
 }
 
 impl std::cmp::Eq for ADNumber {
-
 }
 
 impl std::cmp::PartialEq for ADNumber {
@@ -52,6 +51,4 @@ impl std::cmp::Ord for ADNumber {
     }
 }
 
-impl NumberLike for ADNumber {
-
-}
+impl NumberLike for ADNumber {}

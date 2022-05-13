@@ -1,15 +1,15 @@
+use rayon::prelude::*;
+
 mod number_factory;
 mod number_like;
-mod network;
-mod layer;
 mod math;
 mod mnist;
 mod ad_factory;
 mod ad_number;
 mod float_factory;
+mod network;
+mod trainer;
 pub mod mnist_train;
-pub mod scalar_network;
-pub mod trainer;
 pub mod util;
 
 pub use number_factory::{
@@ -19,15 +19,6 @@ pub use number_factory::{
 
 pub use number_like::{
     NumberLike,
-};
-
-pub use network::{
-    Network,
-};
-
-pub use layer::{
-    Layer,
-    LayerConfig,
 };
 
 pub use math::{
@@ -53,7 +44,16 @@ pub use float_factory::{
     FloatFactory,
 };
 
-pub trait ClassificationExample {
+pub use network::{
+    Network,
+    LayerConfig,
+};
+
+pub use trainer::{
+    TrainingConfig,
+};
+
+pub trait ClassificationExample: Sync {
     fn get_input(&self) -> Vec<f32>;
     fn get_label(&self) -> usize;
     fn get_one_hot(&self) -> Vec<f32> {

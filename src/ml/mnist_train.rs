@@ -1,14 +1,11 @@
 use crate::ml::{
     NeuronActivation,
     LayerActivation,
-    scalar_network::{
-        ScalarNetwork,
-        LayerConfig,
-    },
+    Network,
+    LayerConfig,
     ErrorFunction,
     trainer::{
         TrainingConfig,
-        train_scalar_network,
     },
     mnist::{
         load_training_set,
@@ -16,8 +13,8 @@ use crate::ml::{
     },
 };
 
-pub fn create_network() -> ScalarNetwork {
-    ScalarNetwork::new(
+pub fn create_network() -> Network {
+    Network::new(
         28 * 28,
         ErrorFunction::EuclideanDistanceSquared,
         vec![
@@ -37,10 +34,7 @@ pub fn create_network() -> ScalarNetwork {
     )
 }
 
-pub fn train() -> ScalarNetwork {
-    let tconf = TrainingConfig::new();
-    let mut network = create_network();
-
+pub fn train(network: &mut Network) -> &mut Network {
     let training_set = match load_training_set() {
         Ok(set) => set,
         Err(err) => {
@@ -57,9 +51,13 @@ pub fn train() -> ScalarNetwork {
         }
     };
 
-    train_scalar_network(&mut network, &tconf, &training_set, &testing_set);
+    let tconf = TrainingConfig {
+        batch_size: 100.0,
+        learning_rate: 0.1,
+        ..TrainingConfig::new(training_set.len())
+    };
 
-    network
+    network.ad_train(&training_set, &testing_set, &tconf)
 }
 
 #[test]

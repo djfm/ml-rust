@@ -5,25 +5,6 @@ use crate::ml::{
     LayerActivation,
 };
 
-#[derive(Copy, Clone, Debug)]
-pub struct LayerConfig {
-    pub neurons_count: usize,
-    pub neuron_activation: NeuronActivation,
-    pub layer_activation: LayerActivation,
-    pub use_biases: bool,
-}
-
-impl LayerConfig {
-    pub fn new(neurons_count: usize) -> Self {
-        LayerConfig {
-            neurons_count,
-            neuron_activation: NeuronActivation::LeakyReLU(0.01),
-            layer_activation: LayerActivation::None,
-            use_biases: true,
-        }
-    }
-}
-
 pub struct Layer<N> where N: NumberLike {
     config: LayerConfig,
     weights: Vec<N>,

@@ -146,6 +146,11 @@ impl ADFactory {
 }
 
 impl NumberFactory<ADNumber> for ADFactory {
+    fn has_automatic_diff(&self) -> bool {
+        true
+    }
+
+
     fn create_variable(&mut self, scalar: f32) -> ADNumber {
         let id = self.tape.len();
         self.tape.push_empty_record();
@@ -195,6 +200,28 @@ impl NumberFactory<ADNumber> for ADFactory {
             operand.scalar().exp(),
             operand.scalar().exp(),
         )
+    }
+
+    fn binary_operation(
+        &mut self,
+        left: ADNumber, right: ADNumber,
+        result: f32,
+        diff_left: f32, diff_right: f32,
+    ) -> ADNumber {
+        self.binary_operation(left, right, result, diff_left, diff_right)
+    }
+
+    fn unary_operation(
+        &mut self,
+        operand: ADNumber,
+        result: f32,
+        diff: f32,
+    ) -> ADNumber {
+        self.unary_operation(operand, result, diff)
+    }
+
+    fn to_scalar(&self, operand: ADNumber) -> f32 {
+        operand.scalar()
     }
 }
 

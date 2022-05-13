@@ -16,25 +16,23 @@ pub trait NumberFactory<N> where N: NumberLike {
 
     fn exp(&mut self, operand: N) -> N;
 
+    fn to_scalar(&self, operand: N) -> f32;
+
     fn activate_neuron(&mut self, neuron: N, activation: &NeuronActivation) -> N {
         match activation {
-            NeuronActivation::None => neuron,
+            NeuronActivation::None => self.unary_operation(neuron, self.to_scalar(neuron), 1.0),
             NeuronActivation::ReLu => {
-                let zero = self.create_variable(0.0);
-
-                if neuron > zero {
-                    neuron
+                if neuron > self.create_variable(0.0) {
+                    self.unary_operation(neuron, self.to_scalar(neuron), 1.0)
                 } else {
-                    zero
+                    self.create_variable(0.0)
                 }
             },
             NeuronActivation::LeakyReLU(alpha) => {
-                let zero = self.create_variable(0.0);
-
-                if neuron > zero {
-                    neuron
+                if neuron > self.create_variable(0.0) {
+                    self.unary_operation(neuron, self.to_scalar(neuron), 1.0)
                 } else {
-                    self.create_variable(*alpha)
+                    self.unary_operation(neuron, self.to_scalar(neuron), *alpha)
                 }
             }
         }
@@ -78,7 +76,7 @@ pub trait NumberFactory<N> where N: NumberLike {
         }
     }
 
-    fn get_max_value(&mut self, vec: &Vec<N>) -> usize {
+    fn get_label(&mut self, vec: &Vec<N>) -> usize {
         let mut max = self.create_variable(0.0);
         let mut index = 0;
 
@@ -91,6 +89,22 @@ pub trait NumberFactory<N> where N: NumberLike {
 
         index
     }
+
+    fn has_automatic_diff(&self) -> bool;
+
+    fn binary_operation(
+        &mut self,
+        left: N, right: N,
+        result: f32,
+        diff_left: f32, diff_right: f32,
+    ) -> N;
+
+    fn unary_operation(
+        &mut self,
+        operand: N,
+        result: f32,
+        diff: f32,
+    ) -> N;
 }
 
 pub trait DifferentiableNumberFactory<N>: NumberFactory<N> where N: NumberLike {
