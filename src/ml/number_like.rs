@@ -1,5 +1,3 @@
-pub trait NumberLike:
-    Copy + Clone +
-    std::cmp::PartialOrd +
-    std::cmp::PartialEq
-{}
+pub trait NumberLike: Copy + Clone {
+    fn scalar(&self) -> f32;
+}
