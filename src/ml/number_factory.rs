@@ -23,7 +23,30 @@ pub enum ErrorFunction {
 }
 
 pub trait NumberFactory<N> where N: NumberLike {
-    fn from_scalar(scalar: f32) -> N;
+    fn new() -> Self;
+
+    fn from_scalar(&mut self, scalar: f32) -> N;
+    fn from_scalars(&mut self, scalars: &[f32]) -> Vec<N> {
+        scalars.iter().map(|&s| self.from_scalar(s)).collect()
+    }
+
+    fn hottest_index(&self, activations: &[N]) -> usize {
+        if activations.is_empty() {
+            panic!("activations is empty");
+        }
+
+        let mut max_index = 0;
+        let mut max_activation = activations[0].scalar();
+
+        for (i, activation) in activations.iter().enumerate() {
+            if activation.scalar() > max_activation {
+                max_index = i;
+                max_activation = activation.scalar();
+            }
+        }
+
+        max_index
+    }
 
     fn add(&mut self, a: &N, b: &N) -> N;
     fn sub(&mut self, a: &N, b: &N) -> N;
@@ -38,5 +61,5 @@ pub trait NumberFactory<N> where N: NumberLike {
     fn activate_layer(&mut self, a: &[N], activation: &LayerActivation) -> Vec<N>;
     fn compute_error(&mut self, a: &[N], b: &[N], error_function: &ErrorFunction) -> N;
 
-    fn diff(&mut self, y: &N, x: &N);
+    fn diff(&mut self, y: &N, x: &N) -> f32;
 }
