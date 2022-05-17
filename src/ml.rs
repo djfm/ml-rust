@@ -1,3 +1,4 @@
+mod autodiff;
 mod number_factory;
 mod number_like;
 mod network;
