@@ -2,6 +2,7 @@ use std::collections::hash_map::{HashMap};
 
 use crate::ml::{
     NumberFactory,
+    DifferentiableNumberFactory,
     NumberLike,
     NeuronActivation,
     LayerActivation,
@@ -84,24 +85,20 @@ impl Tape {
 }
 
 #[derive(Default)]
-pub struct Autodiff {
+pub struct AutoDiff {
     tape: Tape,
     gradients: HashMap<usize, Vec<f32>>,
 }
 
-impl NumberFactory<ADNumber> for Autodiff {
-    fn new() -> Self { Default::default() }
+impl AutoDiff {
+    pub fn new() -> Self {
+        Default::default()
+    }
+}
 
-    fn diff(&mut self, y: &ADNumber, x: &ADNumber) -> f32 {
-        match self.gradients.get(&y.id) {
-            Some(gradient) => gradient[x.id],
-            None => {
-                let gradient = self.tape.compute_gradient(&y);
-                let diff = gradient[x.id];
-                self.gradients.insert(y.id, gradient);
-                diff
-            }
-        }
+impl NumberFactory<ADNumber> for AutoDiff {
+    fn get_as_differentiable(&mut self) -> Option<&mut (dyn DifferentiableNumberFactory<ADNumber>)> {
+        Some(self)
     }
 
     fn from_scalar(&mut self, scalar: f32) -> ADNumber {
@@ -235,6 +232,20 @@ impl NumberFactory<ADNumber> for Autodiff {
     }
 }
 
+impl DifferentiableNumberFactory<ADNumber> for AutoDiff {
+    fn diff(&mut self, y: &ADNumber, x: &ADNumber) -> f32 {
+        match self.gradients.get(&y.id) {
+            Some(gradient) => gradient[x.id],
+            None => {
+                let gradient = self.tape.compute_gradient(&y);
+                let diff = gradient[x.id];
+                self.gradients.insert(y.id, gradient);
+                diff
+            }
+        }
+    }
+}
+
 #[derive(Copy, Clone)]
 pub struct ADNumber {
     id: usize,
@@ -242,11 +253,15 @@ pub struct ADNumber {
 }
 
 impl ADNumber {
-    fn new(id: usize, scalar: f32) -> Self {
+    pub fn new(id: usize, scalar: f32) -> Self {
         ADNumber {
             id,
             scalar,
         }
+    }
+
+    pub fn scalar(&self) -> f32 {
+        self.scalar
     }
 }
 
@@ -258,7 +273,7 @@ impl NumberLike for ADNumber {
 
 #[test]
 fn test_add_simple() {
-    let mut ad = Autodiff::new();
+    let mut ad = AutoDiff::new();
     let x = ad.from_scalar(1.0);
     let y = ad.add(&x, &x);
     let dy_dx = ad.diff(&y, &x);
@@ -268,7 +283,7 @@ fn test_add_simple() {
 
 #[test]
 fn test_dx2_dx() {
-    let mut ad = Autodiff::new();
+    let mut ad = AutoDiff::new();
     let x = ad.from_scalar(2.0);
     let y = ad.mul(&x, &x);
     let dy_dx = ad.diff(&y, &x);
@@ -278,7 +293,7 @@ fn test_dx2_dx() {
 
 #[test]
 fn test_dx2y_dx_dx2y_dy() {
-    let mut ad = Autodiff::new();
+    let mut ad = AutoDiff::new();
     let x = ad.from_scalar(2.0);
     let y = ad.from_scalar(3.0);
     let pz = ad.mul(&x, &x);
@@ -290,7 +305,7 @@ fn test_dx2y_dx_dx2y_dy() {
 
 #[test]
 fn test_sub() {
-    let mut ad = Autodiff::new();
+    let mut ad = AutoDiff::new();
     let x = ad.from_scalar(1.0);
     let y = ad.from_scalar(2.0);
     let z = ad.sub(&x, &y);
@@ -304,7 +319,7 @@ fn test_sub() {
 
 #[test]
 fn test_mul() {
-    let mut ad = Autodiff::new();
+    let mut ad = AutoDiff::new();
     let x = ad.from_scalar(3.0);
     let y = ad.from_scalar(2.0);
     let z = ad.mul(&x, &y);
@@ -318,7 +333,7 @@ fn test_mul() {
 
 #[test]
 fn test_div() {
-    let mut ad = Autodiff::new();
+    let mut ad = AutoDiff::new();
     let x = ad.from_scalar(1.0);
     let y = ad.from_scalar(2.0);
     let z = ad.div(&x, &y);
@@ -332,7 +347,7 @@ fn test_div() {
 
 #[test]
 fn test_exp() {
-    let mut ad = Autodiff::new();
+    let mut ad = AutoDiff::new();
     let x = ad.from_scalar(1.0);
     let y = ad.exp(&x);
     let dy_dx = ad.diff(&y, &x);
@@ -342,7 +357,7 @@ fn test_exp() {
 
 #[test]
 fn test_much_more_complex_diff() {
-    let mut ad = Autodiff::new();
+    let mut ad = AutoDiff::new();
     let x = ad.from_scalar(3.0);
     let y = ad.from_scalar(4.0);
     let exp_x = ad.exp(&x);

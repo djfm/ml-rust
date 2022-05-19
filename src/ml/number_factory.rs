@@ -23,7 +23,7 @@ pub enum ErrorFunction {
 }
 
 pub trait NumberFactory<N> where N: NumberLike {
-    fn new() -> Self;
+    fn get_as_differentiable(&mut self) -> Option<&mut (dyn DifferentiableNumberFactory<N>)>;
 
     fn from_scalar(&mut self, scalar: f32) -> N;
     fn from_scalars(&mut self, scalars: &[f32]) -> Vec<N> {
@@ -60,6 +60,18 @@ pub trait NumberFactory<N> where N: NumberLike {
     fn activate_neuron(&mut self, a: &N, activation: &NeuronActivation) -> N;
     fn activate_layer(&mut self, a: &[N], activation: &LayerActivation) -> Vec<N>;
     fn compute_error(&mut self, a: &[N], b: &[N], error_function: &ErrorFunction) -> N;
+}
 
+pub trait DifferentiableNumberFactory<N>: NumberFactory<N> where N: NumberLike {
     fn diff(&mut self, y: &N, x: &N) -> f32;
+}
+
+pub enum NumberFactoryWrapper<'a, N, F, D> where
+    N: NumberLike,
+    F: NumberFactory<N>,
+    D: DifferentiableNumberFactory<N>
+{
+    Regular(&'a mut F),
+    Differentiable(&'a mut D),
+    _None(std::marker::PhantomData<N>),
 }

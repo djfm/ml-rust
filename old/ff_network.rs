@@ -6,7 +6,7 @@ use super::activations::{
     LayerActivation,
 };
 
-use super::autodiff::{
+use super::AutoDiff::{
     AutoDiff,
     ADValue,
 };
@@ -50,7 +50,7 @@ impl FFLayer {
 
 #[derive(Debug, Clone)]
 pub struct Network {
-    autodiff: AutoDiff,
+    AutoDiff: AutoDiff,
     layers: Vec<FFLayer>,
 }
 
@@ -62,7 +62,7 @@ pub struct BatchResult {
 impl Network {
     pub fn new() -> Network {
         Network {
-            autodiff: AutoDiff::new(),
+            AutoDiff: AutoDiff::new(),
             layers: Vec::new(),
         }
     }
@@ -71,8 +71,8 @@ impl Network {
         self.layers.len()
     }
 
-    pub fn autodiff(&mut self) -> &mut AutoDiff {
-        &mut self.autodiff
+    pub fn AutoDiff(&mut self) -> &mut AutoDiff {
+        &mut self.AutoDiff
     }
 
     pub fn add_layer(
@@ -105,17 +105,17 @@ impl Network {
                 }
             }
 
-            let weights = weights_f32.iter().map(|w| self.autodiff.create_variable(*w)).collect();
+            let weights = weights_f32.iter().map(|w| self.AutoDiff.create_variable(*w)).collect();
 
             let neuron = Neuron {
                 weights,
                 bias: if use_bias {
-                    Some(self.autodiff.create_variable(rng.gen()))
+                    Some(self.AutoDiff.create_variable(rng.gen()))
                 } else {
                     None
                 },
                 activation: neuron_activation,
-                ad_value: self.autodiff.create_constant(0.0),
+                ad_value: self.AutoDiff.create_constant(0.0),
             };
             layer.neurons.push(neuron);
         }
@@ -131,7 +131,7 @@ impl Network {
         }
 
         for (neuron, &input_value) in self.layers[0].neurons.iter_mut().zip(input_vec.iter()) {
-            neuron.ad_value = self.autodiff.create_constant(input_value);
+            neuron.ad_value = self.AutoDiff.create_constant(input_value);
         }
 
         for l in 1..self.layers.len() {
@@ -143,23 +143,23 @@ impl Network {
                 neuron.ad_value = if let Some(bias) = neuron.bias {
                     bias
                 } else {
-                    self.autodiff.create_constant(0.0)
+                    self.AutoDiff.create_constant(0.0)
                 };
 
                 for (&weight, connected_neuron) in neuron.weights.iter().zip(prev_layer.neurons.iter()) {
-                    let contrib = self.autodiff.mul(
+                    let contrib = self.AutoDiff.mul(
                         weight,
                         connected_neuron.ad_value,
                     );
 
-                    neuron.ad_value = self.autodiff.add(
+                    neuron.ad_value = self.AutoDiff.add(
                         neuron.ad_value,
                         contrib,
                     );
                 }
 
                 if let Some(activation) = neuron.activation {
-                    neuron.ad_value = self.autodiff.apply_neuron_activation(
+                    neuron.ad_value = self.AutoDiff.apply_neuron_activation(
                         neuron.ad_value,
                         &activation,
                     );
@@ -167,7 +167,7 @@ impl Network {
             }
 
             if let Some(activation) = layer.activation {
-                let activated = self.autodiff.apply_layer_activation(
+                let activated = self.AutoDiff.apply_layer_activation(
                     &layer.to_vec(),
                     &activation,
                 );
@@ -180,17 +180,17 @@ impl Network {
     }
 
     pub fn compute_batch_error<T: ClassificationExample>(&mut self, examples: &Vec<&T>) -> ADValue {
-        let mut batch_error = self.autodiff.create_constant(0.0);
+        let mut batch_error = self.AutoDiff.create_constant(0.0);
 
         for example in examples.iter() {
             let output = self.feed_forward(*example);
-            let mut one_hot = vec![self.autodiff.create_constant(0.0); output.len()];
-            one_hot[example.get_label()] = self.autodiff.create_constant(1.0);
-            let error = self.autodiff().euclidean_distance_squared(&output, &one_hot);
-            batch_error = self.autodiff.add(batch_error, error);
+            let mut one_hot = vec![self.AutoDiff.create_constant(0.0); output.len()];
+            one_hot[example.get_label()] = self.AutoDiff.create_constant(1.0);
+            let error = self.AutoDiff().euclidean_distance_squared(&output, &one_hot);
+            batch_error = self.AutoDiff.add(batch_error, error);
         }
 
-        self.autodiff.div(batch_error, self.autodiff.create_constant(examples.len() as f32))
+        self.AutoDiff.div(batch_error, self.AutoDiff.create_constant(examples.len() as f32))
     }
 
     pub fn predict(&self, input: &dyn ClassificationExample) -> usize {
@@ -233,10 +233,10 @@ impl Network {
 
     pub fn compute_example_error(&mut self, input: &dyn ClassificationExample) -> ADValue {
         let output = self.feed_forward(input);
-        let mut expected = vec![self.autodiff.create_constant(0.0); output.len()];
-        expected[input.get_label()] = self.autodiff.create_constant(1.0);
+        let mut expected = vec![self.AutoDiff.create_constant(0.0); output.len()];
+        expected[input.get_label()] = self.AutoDiff.create_constant(1.0);
 
-        self.autodiff.euclidean_distance_squared(
+        self.AutoDiff.euclidean_distance_squared(
             &output,
             &expected,
         )
@@ -259,7 +259,7 @@ impl Network {
             let layer = &mut self.layers[l];
             for neuron in layer.neurons.iter_mut() {
                 for weight in neuron.weights.iter_mut() {
-                    let error_contrib = self.autodiff.diff(
+                    let error_contrib = self.AutoDiff.diff(
                         error,
                         *weight,
                     );
@@ -267,7 +267,7 @@ impl Network {
                 }
 
                 if let Some(mut bias) = neuron.bias {
-                    let error_contrib = self.autodiff.diff(
+                    let error_contrib = self.AutoDiff.diff(
                         error,
                         bias,
                     );
@@ -304,18 +304,18 @@ impl Network {
 
     pub fn reset(&mut self) {
         // Avoid explosion of the number of tracked variables
-        self.autodiff.reset();
+        self.AutoDiff.reset();
 
         // Prepare the network again for next automatic differentiation
         for l in 1..self.layers.len() {
             let layer = &mut self.layers[l];
             for neuron in layer.neurons.iter_mut() {
                 for weight in neuron.weights.iter_mut() {
-                    *weight = self.autodiff.create_variable(weight.value);
+                    *weight = self.AutoDiff.create_variable(weight.value);
                 }
 
                 if let Some(bias) = neuron.bias {
-                    neuron.bias = Some(self.autodiff.create_variable(bias.value));
+                    neuron.bias = Some(self.AutoDiff.create_variable(bias.value));
                 }
             }
         }

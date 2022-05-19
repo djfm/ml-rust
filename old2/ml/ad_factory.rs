@@ -146,11 +146,6 @@ impl ADFactory {
 }
 
 impl NumberFactory<ADNumber> for ADFactory {
-    fn has_automatic_diff(&self) -> bool {
-        true
-    }
-
-
     fn create_variable(&mut self, scalar: f32) -> ADNumber {
         let id = self.tape.len();
         self.tape.push_empty_record();

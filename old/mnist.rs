@@ -207,7 +207,7 @@ pub fn train() {
     println!(
         "Created a network with {} layers totalling {} parameters",
         network.depth(),
-        network.autodiff().size()
+        network.AutoDiff().size()
     );
 
     let training = load_training_set().unwrap();
@@ -221,19 +221,19 @@ pub fn train() {
     let epochs = 5;
 
     // Utility variables
-    let mut batch_error = network.autodiff().create_variable(0.0);
+    let mut batch_error = network.AutoDiff().create_variable(0.0);
     let mut current_batch_size = 0;
     let mut batch_number = 0;
 
     for epoch in 1..=epochs {
         for (i, image) in training.iter().enumerate() {
             let error = network.compute_example_error(image);
-            batch_error = network.autodiff().add(batch_error, error);
+            batch_error = network.AutoDiff().add(batch_error, error);
             current_batch_size += 1;
 
             if current_batch_size >= batch_size || i >= training.len() - 1 {
-                let size = network.autodiff().create_constant(current_batch_size as f32);
-                batch_error = network.autodiff().div(batch_error, size);
+                let size = network.AutoDiff().create_constant(current_batch_size as f32);
+                batch_error = network.AutoDiff().div(batch_error, size);
                 network.back_propagate(batch_error, learning_rate);
 
                 println!(
@@ -243,7 +243,7 @@ pub fn train() {
                     100.0 * batch_error.value,
                 );
 
-                batch_error = network.autodiff().create_variable(0.0);
+                batch_error = network.AutoDiff().create_variable(0.0);
                 current_batch_size = 0;
                 batch_number += 1;
             }
@@ -266,7 +266,7 @@ pub fn train_parallel() {
     println!(
         "Created a network with {} layers totalling {} parameters",
         network.depth(),
-        network.autodiff().size()
+        network.AutoDiff().size()
     );
 
     let training = load_training_set().unwrap();
@@ -299,7 +299,7 @@ pub fn train_parallel() {
                 image_pos += batch.len();
 
                 let mut res = BatchResult {
-                    error: network.autodiff().create_variable(0.0),
+                    error: network.AutoDiff().create_variable(0.0),
                     net: network.clone(),
                 };
 

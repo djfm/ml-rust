@@ -1,7 +1,7 @@
 mod mnist;
 mod ff_network;
 mod activations;
-mod autodiff;
+mod AutoDiff;
 mod math;
 mod util;
 

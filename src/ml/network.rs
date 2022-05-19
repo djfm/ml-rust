@@ -125,20 +125,22 @@ impl Network {
         neuron_activation: NeuronActivation,
         layer_activation: LayerActivation,
     ) -> &mut Self {
-        let input_size = if self.layer_configs.is_empty() {
+        let is_first_layer = self.layer_configs.is_empty();
+
+        let input_size = if is_first_layer {
             self.input_size
         } else {
-            self.layer_configs.last().expect("last layer is absent").neurons_count
+            self.layer_configs.last().expect("this is not the first layer").neurons_count
         };
 
-        let params_offset = if self.layer_configs.is_empty() {
+        let params_offset = if is_first_layer {
             0
         } else {
-            let prev_conf = self.layer_configs.last().expect("last layer is absent");
+            let prev_conf = self.layer_configs.last().expect("this is not the first layer");
             prev_conf.params_offset + prev_conf.params_count
         };
 
-        let params_count = neurons_count * input_size + use_biases as usize * neurons_count;
+        let params_count = neurons_count * (input_size + use_biases as usize);
 
         for _ in 0..params_count {
             self.params.push(self.rng.gen());
@@ -157,7 +159,7 @@ impl Network {
     }
 
     fn get_bias(&self, layer: usize, neuron: usize) -> f32 {
-        let conf = &self.layer_configs[layer];
+        let conf = self.layer_configs.get(layer).expect("valid layer index");
 
         if !conf.use_biases {
             return 0.0;
@@ -168,12 +170,13 @@ impl Network {
         } else {
             self.layer_configs[layer - 1].neurons_count
         };
+
         let index = conf.params_offset + neuron * (prev_size + conf.use_biases as usize);
         self.params[index]
     }
 
     fn get_weights(&self, layer: usize, neuron: usize) -> &[f32] {
-        let conf = &self.layer_configs[layer];
+        let conf = self.layer_configs.get(layer).expect("valid layer index");
         let use_biases = conf.use_biases as usize;
         let prev_size = if self.layer_configs.is_empty() {
             self.input_size
@@ -233,21 +236,35 @@ impl Network {
         let expected = nf.from_scalars(&example.get_expected_one_hot());
         let error = nf.compute_error(&expected, &previous_activations, &self.error_function);
 
+        let diffs = match nf.get_as_differentiable() {
+            Some(dnf) => params.iter().map(|p| dnf.diff(&error, p)).collect(),
+            None => vec![],
+        };
+
         FFResult {
             error: error.scalar(),
-            diffs: params.iter().map(|p| nf.diff(&error, p)).collect(),
+            diffs,
             expected_category: example.get_category(),
             actual_category: nf.hottest_index(&previous_activations),
             batch_size: 1,
         }
     }
 
-    fn feed_batch_forward<C: ClassificationExample, N: NumberLike, F: NumberFactory<N>>(
+    fn feed_batch_forward<
+        C: ClassificationExample,
+        N: NumberLike,
+        NumberFactoryCreatorFunction,
+        F: NumberFactory<N>
+    >(
         &self,
+        cnf: NumberFactoryCreatorFunction,
         examples: &[C],
-    ) -> BatchResult {
+    ) -> BatchResult
+    where
+        NumberFactoryCreatorFunction: Fn() -> F + Sync,
+    {
         examples.par_iter().map(|example| {
-            let mut nf = F::new();
+            let mut nf = cnf();
             self.feed_forward(&mut nf, example).to_batch_result()
         }).sum::<BatchResult>()
     }

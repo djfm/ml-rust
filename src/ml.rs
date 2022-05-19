@@ -5,6 +5,8 @@ mod network;
 
 pub use number_factory::{
     NumberFactory,
+    DifferentiableNumberFactory,
+    NumberFactoryWrapper,
     LayerActivation,
     NeuronActivation,
     ErrorFunction,
@@ -16,4 +18,9 @@ pub use number_like::{
 
 pub use network::{
     Network,
+};
+
+pub use autodiff::{
+    AutoDiff,
+    ADNumber,
 };
