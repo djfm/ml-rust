@@ -19,13 +19,13 @@ struct Record {
     partials: Vec<PartialDiff>
 }
 
-struct DefinerHelper {
+pub struct DiffDefinerHelper {
     record: Record,
 }
 
-impl DefinerHelper {
+impl DiffDefinerHelper {
     fn new() -> Self {
-        DefinerHelper {
+        DiffDefinerHelper {
             record: Default::default(),
         }
     }
@@ -49,8 +49,8 @@ impl Tape {
         Default::default()
     }
 
-    fn record<D: FnOnce(&mut DefinerHelper)>(&mut self, definer: D) -> &mut Self {
-        let mut log = DefinerHelper::new();
+    fn record<D: FnOnce(&mut DiffDefinerHelper)>(&mut self, definer: D) -> &mut Self {
+        let mut log = DiffDefinerHelper::new();
         definer(&mut log);
         self.records.push(log.record);
         self
@@ -136,7 +136,7 @@ impl NumberFactory<ADNumber> for AutoDiff {
         }).result(a.scalar.exp())
     }
 
-    fn log(&mut self, a: &ADNumber) -> ADNumber {
+    fn ln(&mut self, a: &ADNumber) -> ADNumber {
         self.tape.record(|mut log| {
             log.diff(a, 1.0 / a.scalar);
         }).result(a.scalar.ln())
@@ -182,52 +182,6 @@ impl NumberFactory<ADNumber> for AutoDiff {
                     }).result(0.0)
                 }
             }
-        }
-    }
-
-    fn activate_layer(&mut self, a: &[ADNumber], activation: &LayerActivation) -> Vec<ADNumber> {
-        match activation {
-            LayerActivation::None => a.to_vec(),
-            LayerActivation::SoftMax => {
-                let mut sum = self.from_scalar(0.0);
-                let mut res = Vec::with_capacity(a.len());
-
-                for (i, v) in a.iter().enumerate() {
-                    let exp = self.exp(v);
-                    sum = self.add(&sum, &exp);
-                    res.push(exp);
-                }
-
-                for v in res.iter_mut() {
-                    *v = self.div(v, &sum);
-                }
-
-                res
-            }
-        }
-    }
-
-    fn compute_error(&mut self, expected: &[ADNumber], actual: &[ADNumber], error_function: &ErrorFunction) -> ADNumber {
-        match error_function {
-            ErrorFunction::None => self.from_scalar(0.0),
-            ErrorFunction::EuclideanDistanceSquared => {
-                let mut sum = self.from_scalar(0.0);
-                for (a, b) in expected.iter().zip(actual.iter()) {
-                    let diff = self.sub(a, b);
-                    let square = self.powi(&diff, 2);
-                    sum = self.add(&sum, &square);
-                }
-                sum
-            },
-            ErrorFunction::CategoricalCrossEntropy => {
-                let mut sum = self.from_scalar(0.0);
-                for (e, a) in expected.iter().zip(actual.iter()) {
-                    let log = self.log(&a);
-                    let mul = self.mul(&log, &e);
-                    sum = self.sub(&sum, &mul);
-                }
-                sum
-            },
         }
     }
 }

@@ -7,6 +7,7 @@ use crate::ml::{
     ErrorFunction,
     NumberFactory,
     NumberLike,
+    FloatFactory,
 };
 
 pub trait ClassificationExample: Sync + Send {
@@ -165,7 +166,7 @@ impl Network {
             return 0.0;
         }
 
-        let prev_size = if self.layer_configs.is_empty() {
+        let prev_size = if layer == 0 {
             self.input_size
         } else {
             self.layer_configs[layer - 1].neurons_count
@@ -178,7 +179,7 @@ impl Network {
     fn get_weights(&self, layer: usize, neuron: usize) -> &[f32] {
         let conf = self.layer_configs.get(layer).expect("valid layer index");
         let use_biases = conf.use_biases as usize;
-        let prev_size = if self.layer_configs.is_empty() {
+        let prev_size = if layer == 0 {
             self.input_size
         } else {
             self.layer_configs[layer - 1].neurons_count
@@ -270,12 +271,83 @@ impl Network {
     }
 }
 
-#[test]
-fn test_create_network() {
-    let mut network = Network::new(2, ErrorFunction::EuclideanDistanceSquared);
-    network
-        .add_layer(2, true, NeuronActivation::LeakyRelu(0.01), LayerActivation::None)
-        .add_layer(1, false, NeuronActivation::None, LayerActivation::SoftMax);
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    assert_eq!(network.params.len(), 8);
+    struct TestExample {
+        input: Vec<f32>,
+    }
+
+    impl TestExample {
+        fn new(input: Vec<f32>) -> Self {
+            Self {
+                input,
+            }
+        }
+    }
+
+    fn max_difference(input: &[f32]) -> f32 {
+        let mut max = 0.0;
+
+        for (i, v) in input.iter().enumerate() {
+            for w in input.iter().skip(i + 1) {
+                let diff = (v - w).abs();
+                if diff > max {
+                    max = diff;
+                }
+            }
+        }
+
+        max
+    }
+
+    impl ClassificationExample for TestExample {
+        fn get_input(&self) -> &[f32] {
+            &self.input
+        }
+
+        fn get_category(&self) -> usize {
+            if max_difference(&self.input) > 0.8 {
+                1
+            } else {
+                0
+            }
+        }
+
+        fn get_categories_count(&self) -> usize {
+            2
+        }
+    }
+
+    fn create_simple_network() -> Network {
+        let mut network = Network::new(2, ErrorFunction::EuclideanDistanceSquared);
+        network
+            .add_layer(2, true, NeuronActivation::LeakyRelu(0.01), LayerActivation::None)
+            .add_layer(1, false, NeuronActivation::None, LayerActivation::SoftMax);
+        network
+    }
+
+    #[test]
+    fn test_create_network() {
+        let network = create_simple_network();
+        assert_eq!(network.params.len(), 8);
+    }
+
+    #[test]
+    fn test_feed_forward() {
+        let mut network = create_simple_network();
+
+        network.params = vec![
+            0.5, 0.1, 0.3,
+            0.2, 0.4, 0.6,
+            0.15, 0.25
+        ];
+
+        let input = TestExample::new(vec![0.8, 0.2]);
+
+        let mut nf = FloatFactory::new();
+
+        network.feed_forward(&mut nf, &input);
+    }
 }

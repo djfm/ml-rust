@@ -1,6 +1,7 @@
 mod autodiff;
 mod number_factory;
 mod number_like;
+mod float_factory;
 mod network;
 
 pub use number_factory::{
@@ -23,4 +24,9 @@ pub use network::{
 pub use autodiff::{
     AutoDiff,
     ADNumber,
+    DiffDefinerHelper,
+};
+
+pub use float_factory::{
+    FloatFactory,
 };

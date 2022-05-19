@@ -53,13 +53,78 @@ pub trait NumberFactory<N> where N: NumberLike {
     fn mul(&mut self, a: &N, b: &N) -> N;
     fn div(&mut self, a: &N, b: &N) -> N;
     fn exp(&mut self, a: &N) -> N;
-    fn log(&mut self, a: &N) -> N;
+    fn ln(&mut self, a: &N) -> N;
     fn powi(&mut self, a: &N, i: i32) -> N;
     fn pow(&mut self, a: &N, b: &N) -> N;
 
-    fn activate_neuron(&mut self, a: &N, activation: &NeuronActivation) -> N;
-    fn activate_layer(&mut self, a: &[N], activation: &LayerActivation) -> Vec<N>;
-    fn compute_error(&mut self, a: &[N], b: &[N], error_function: &ErrorFunction) -> N;
+    fn activate_neuron(&mut self, a: &N, activation: &NeuronActivation) -> N {
+        match activation {
+            NeuronActivation::None => a.clone(),
+            NeuronActivation::ReLu => {
+                if a.scalar() > 0.0 {
+                    a.clone()
+                } else {
+                    self.from_scalar(0.0)
+                }
+            }
+            NeuronActivation::LeakyRelu(leak) => {
+                if a.scalar() > 0.0 {
+                    a.clone()
+                } else {
+                    self.from_scalar(*leak)
+                }
+            }
+        }
+    }
+
+    fn activate_layer(&mut self, a: &[N], activation: &LayerActivation) -> Vec<N> {
+        match activation {
+            LayerActivation::None => a.to_vec(),
+
+            LayerActivation::SoftMax => {
+                let mut sum = self.from_scalar(0.0);
+                let mut res = Vec::with_capacity(a.len());
+
+                for (i, v) in a.iter().enumerate() {
+                    let exp = self.exp(v);
+                    sum = self.add(&sum, &exp);
+                    res.push(exp);
+                }
+
+                for v in res.iter_mut() {
+                    *v = self.div(v, &sum);
+                }
+
+                res
+            }
+        }
+    }
+
+    fn compute_error(&mut self, expected: &[N], actual: &[N], error_function: &ErrorFunction) -> N {
+        match error_function {
+            ErrorFunction::None => self.from_scalar(0.0),
+
+            ErrorFunction::EuclideanDistanceSquared => {
+                let mut sum = self.from_scalar(0.0);
+                for (a, b) in expected.iter().zip(actual.iter()) {
+                    let diff = self.sub(a, b);
+                    let square = self.powi(&diff, 2);
+                    sum = self.add(&sum, &square);
+                }
+                sum
+            },
+
+            ErrorFunction::CategoricalCrossEntropy => {
+                let mut sum = self.from_scalar(0.0);
+                for (e, a) in expected.iter().zip(actual.iter()) {
+                    let log = self.ln(&a);
+                    let mul = self.mul(&log, &e);
+                    sum = self.sub(&sum, &mul);
+                }
+                sum
+            },
+        }
+    }
 }
 
 pub trait DifferentiableNumberFactory<N>: NumberFactory<N> where N: NumberLike {
