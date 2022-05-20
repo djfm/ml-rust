@@ -157,9 +157,16 @@ impl NumberFactory<ADNumber> for AutoDiff {
         }).result(a.scalar.powf(b.scalar))
     }
 
+    fn neg(&mut self, a: &ADNumber) -> ADNumber {
+        self.tape.record(|mut log| {
+            log.diff(a, -1.0);
+        }).result(-a.scalar)
+    }
+
     fn activate_neuron(&mut self, a: &ADNumber, activation: &NeuronActivation) -> ADNumber {
         match activation {
             NeuronActivation::None => *a,
+
             NeuronActivation::ReLu => {
                 if a.scalar() > 0.0 {
                     self.tape.record(|mut log| {
@@ -170,18 +177,26 @@ impl NumberFactory<ADNumber> for AutoDiff {
                         log.diff(a, 0.0);
                     }).result(0.0)
                 }
-            }
+            },
+
             NeuronActivation::LeakyRelu(alpha) => {
                 if a.scalar() > 0.0 {
-                    self.tape.record(|mut log| {
+                    self.tape.record(|log| {
                         log.diff(a, 1.0);
                     }).result(a.scalar())
                 } else {
-                    self.tape.record(|mut log| {
+                    self.tape.record(|log| {
                         log.diff(a, *alpha);
                     }).result(0.0)
                 }
             }
+
+            NeuronActivation::Sigmoid => {
+                let sigmoid = 1.0 / (1.0 + (-a.scalar).exp());
+                self.tape.record(|log| {
+                    log.diff(a, sigmoid * (1.0 - sigmoid));
+                }).result(sigmoid)
+            },
         }
     }
 }

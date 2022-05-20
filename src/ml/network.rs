@@ -324,14 +324,14 @@ mod tests {
         let mut network = Network::new(2, ErrorFunction::EuclideanDistanceSquared);
         network
             .add_layer(2, true, NeuronActivation::LeakyRelu(0.01), LayerActivation::None)
-            .add_layer(1, false, NeuronActivation::None, LayerActivation::SoftMax);
+            .add_layer(2, false, NeuronActivation::Sigmoid, LayerActivation::SoftMax);
         network
     }
 
     #[test]
     fn test_create_network() {
         let network = create_simple_network();
-        assert_eq!(network.params.len(), 8);
+        assert_eq!(network.params.len(), 10);
     }
 
     #[test]
@@ -341,13 +341,25 @@ mod tests {
         network.params = vec![
             0.5, 0.1, 0.3,
             0.2, 0.4, 0.6,
-            0.15, 0.25
+            0.15, 0.25, 0.7, 0.2,
         ];
 
         let input = TestExample::new(vec![0.8, 0.2]);
 
         let mut nf = FloatFactory::new();
 
-        network.feed_forward(&mut nf, &input);
+        let ff = network.feed_forward(&mut nf, &input);
+
+        let sigmoid = |x: f32| 1.0 / (1.0 + (-x).exp());
+
+        let a: f32 = sigmoid(0.15 * (0.5 + 0.1 * 0.8 + 0.3 * 0.2) + 0.25 * (0.2 + 0.4 * 0.8 + 0.6 * 0.2));
+        let b: f32 = sigmoid(0.7 * (0.5 + 0.1 * 0.8 + 0.3 * 0.2) + 0.2 * (0.2 + 0.4 * 0.8 + 0.6 * 0.2));
+
+        let output = vec![a.exp() / (a.exp() + b.exp()), b.exp() / (a.exp() + b.exp())];
+        let expected = input.get_expected_one_hot();
+
+        let error = (output[0] - expected[0]).powi(2) + (output[1] - expected[1]).powi(2);
+
+        assert_eq!(ff.error, error);
     }
 }

@@ -57,4 +57,8 @@ impl NumberFactory<f32> for FloatFactory {
     fn pow(&mut self, a: &f32, b: &f32) -> f32 {
         a.powf(*b)
     }
+
+    fn neg(&mut self, a: &f32) -> f32 {
+        -a
+    }
 }

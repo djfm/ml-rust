@@ -7,6 +7,7 @@ pub enum NeuronActivation {
     None,
     ReLu,
     LeakyRelu(f32),
+    Sigmoid,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -56,23 +57,35 @@ pub trait NumberFactory<N> where N: NumberLike {
     fn ln(&mut self, a: &N) -> N;
     fn powi(&mut self, a: &N, i: i32) -> N;
     fn pow(&mut self, a: &N, b: &N) -> N;
+    fn neg(&mut self, a: &N) -> N;
 
     fn activate_neuron(&mut self, a: &N, activation: &NeuronActivation) -> N {
         match activation {
             NeuronActivation::None => a.clone(),
+
             NeuronActivation::ReLu => {
                 if a.scalar() > 0.0 {
                     a.clone()
                 } else {
                     self.from_scalar(0.0)
                 }
-            }
+            },
+
             NeuronActivation::LeakyRelu(leak) => {
                 if a.scalar() > 0.0 {
                     a.clone()
                 } else {
                     self.from_scalar(*leak)
                 }
+            },
+
+            NeuronActivation::Sigmoid => {
+                let one = self.from_scalar(1.0);
+                let minus_a = self.neg(&a);
+                let exp = self.exp(&minus_a);
+                let one_plus_exp = self.add(&one, &exp);
+
+                self.div(&one, &one_plus_exp)
             }
         }
     }
@@ -85,7 +98,7 @@ pub trait NumberFactory<N> where N: NumberLike {
                 let mut sum = self.from_scalar(0.0);
                 let mut res = Vec::with_capacity(a.len());
 
-                for (i, v) in a.iter().enumerate() {
+                for v in a.iter() {
                     let exp = self.exp(v);
                     sum = self.add(&sum, &exp);
                     res.push(exp);
