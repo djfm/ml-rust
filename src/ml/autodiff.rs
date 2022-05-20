@@ -225,99 +225,104 @@ impl NumberLike for ADNumber {
     }
 }
 
-#[test]
-fn test_add_simple() {
-    let mut ad = AutoDiff::new();
-    let x = ad.from_scalar(1.0);
-    let y = ad.add(&x, &x);
-    let dy_dx = ad.diff(&y, &x);
-    assert_eq!(y.scalar(), 2.0);
-    assert_eq!(dy_dx, 2.0);
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-#[test]
-fn test_dx2_dx() {
-    let mut ad = AutoDiff::new();
-    let x = ad.from_scalar(2.0);
-    let y = ad.mul(&x, &x);
-    let dy_dx = ad.diff(&y, &x);
-    assert_eq!(dy_dx, 4.0);
-    assert_eq!(y.scalar(), 4.0);
-}
+    #[test]
+    fn test_add_simple() {
+        let mut ad = AutoDiff::new();
+        let x = ad.from_scalar(1.0);
+        let y = ad.add(&x, &x);
+        let dy_dx = ad.diff(&y, &x);
+        assert_eq!(y.scalar(), 2.0);
+        assert_eq!(dy_dx, 2.0);
+    }
 
-#[test]
-fn test_dx2y_dx_dx2y_dy() {
-    let mut ad = AutoDiff::new();
-    let x = ad.from_scalar(2.0);
-    let y = ad.from_scalar(3.0);
-    let pz = ad.mul(&x, &x);
-    let z = ad.mul(&y, &pz);
+    #[test]
+    fn test_dx2_dx() {
+        let mut ad = AutoDiff::new();
+        let x = ad.from_scalar(2.0);
+        let y = ad.mul(&x, &x);
+        let dy_dx = ad.diff(&y, &x);
+        assert_eq!(dy_dx, 4.0);
+        assert_eq!(y.scalar(), 4.0);
+    }
 
-    assert_eq!(ad.diff(&z, &x), 12.0);
-    assert_eq!(ad.diff(&z, &y), 4.0);
-}
+    #[test]
+    fn test_dx2y_dx_dx2y_dy() {
+        let mut ad = AutoDiff::new();
+        let x = ad.from_scalar(2.0);
+        let y = ad.from_scalar(3.0);
+        let pz = ad.mul(&x, &x);
+        let z = ad.mul(&y, &pz);
 
-#[test]
-fn test_sub() {
-    let mut ad = AutoDiff::new();
-    let x = ad.from_scalar(1.0);
-    let y = ad.from_scalar(2.0);
-    let z = ad.sub(&x, &y);
-    let dz_dx = ad.diff(&z, &x);
-    let dz_dy = ad.diff(&z, &y);
+        assert_eq!(ad.diff(&z, &x), 12.0);
+        assert_eq!(ad.diff(&z, &y), 4.0);
+    }
 
-    assert_eq!(dz_dx, 1.0);
-    assert_eq!(dz_dy, -1.0);
-    assert_eq!(z.scalar(), -1.0);
-}
+    #[test]
+    fn test_sub() {
+        let mut ad = AutoDiff::new();
+        let x = ad.from_scalar(1.0);
+        let y = ad.from_scalar(2.0);
+        let z = ad.sub(&x, &y);
+        let dz_dx = ad.diff(&z, &x);
+        let dz_dy = ad.diff(&z, &y);
 
-#[test]
-fn test_mul() {
-    let mut ad = AutoDiff::new();
-    let x = ad.from_scalar(3.0);
-    let y = ad.from_scalar(2.0);
-    let z = ad.mul(&x, &y);
-    let dz_dx = ad.diff(&z, &x);
-    let dz_dy = ad.diff(&z, &y);
+        assert_eq!(dz_dx, 1.0);
+        assert_eq!(dz_dy, -1.0);
+        assert_eq!(z.scalar(), -1.0);
+    }
 
-    assert_eq!(dz_dx, 2.0);
-    assert_eq!(dz_dy, 3.0);
-    assert_eq!(z.scalar(), 6.0);
-}
+    #[test]
+    fn test_mul() {
+        let mut ad = AutoDiff::new();
+        let x = ad.from_scalar(3.0);
+        let y = ad.from_scalar(2.0);
+        let z = ad.mul(&x, &y);
+        let dz_dx = ad.diff(&z, &x);
+        let dz_dy = ad.diff(&z, &y);
 
-#[test]
-fn test_div() {
-    let mut ad = AutoDiff::new();
-    let x = ad.from_scalar(1.0);
-    let y = ad.from_scalar(2.0);
-    let z = ad.div(&x, &y);
-    let dz_dx = ad.diff(&z, &x);
-    let dz_dy = ad.diff(&z, &y);
+        assert_eq!(dz_dx, 2.0);
+        assert_eq!(dz_dy, 3.0);
+        assert_eq!(z.scalar(), 6.0);
+    }
 
-    assert_eq!(dz_dx, 0.5);
-    assert_eq!(dz_dy, -0.25);
-    assert_eq!(z.scalar(), 0.5);
-}
+    #[test]
+    fn test_div() {
+        let mut ad = AutoDiff::new();
+        let x = ad.from_scalar(1.0);
+        let y = ad.from_scalar(2.0);
+        let z = ad.div(&x, &y);
+        let dz_dx = ad.diff(&z, &x);
+        let dz_dy = ad.diff(&z, &y);
 
-#[test]
-fn test_exp() {
-    let mut ad = AutoDiff::new();
-    let x = ad.from_scalar(1.0);
-    let y = ad.exp(&x);
-    let dy_dx = ad.diff(&y, &x);
+        assert_eq!(dz_dx, 0.5);
+        assert_eq!(dz_dy, -0.25);
+        assert_eq!(z.scalar(), 0.5);
+    }
 
-    assert_eq!(dy_dx, 1.0f32.exp());
-}
+    #[test]
+    fn test_exp() {
+        let mut ad = AutoDiff::new();
+        let x = ad.from_scalar(1.0);
+        let y = ad.exp(&x);
+        let dy_dx = ad.diff(&y, &x);
 
-#[test]
-fn test_much_more_complex_diff() {
-    let mut ad = AutoDiff::new();
-    let x = ad.from_scalar(3.0);
-    let y = ad.from_scalar(4.0);
-    let exp_x = ad.exp(&x);
-    let exp_x_minus_y = ad.sub(&exp_x, &y);
-    let o = ad.div(&y, &exp_x_minus_y);
+        assert_eq!(dy_dx, 1.0f32.exp());
+    }
 
-    assert_eq!(ad.diff(&o, &x), -0.310507656);
-    assert_eq!(ad.diff(&o, &y), 0.077626914);
+    #[test]
+    fn test_much_more_complex_diff() {
+        let mut ad = AutoDiff::new();
+        let x = ad.from_scalar(3.0);
+        let y = ad.from_scalar(4.0);
+        let exp_x = ad.exp(&x);
+        let exp_x_minus_y = ad.sub(&exp_x, &y);
+        let o = ad.div(&y, &exp_x_minus_y);
+
+        assert_eq!(ad.diff(&o, &x), -0.310507656);
+        assert_eq!(ad.diff(&o, &y), 0.077626914);
+    }
 }
