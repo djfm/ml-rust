@@ -3,6 +3,8 @@ mod number_factory;
 mod number_like;
 mod float_factory;
 mod network;
+mod training;
+mod data;
 
 pub use number_factory::{
     NumberFactory,
@@ -19,6 +21,12 @@ pub use number_like::{
 
 pub use network::{
     Network,
+    ClassificationExample,
+};
+
+pub use training::{
+    train,
+    TrainingConfig,
 };
 
 pub use autodiff::{

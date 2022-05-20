@@ -11,7 +11,7 @@ use crate::ml::{
 };
 
 pub trait ClassificationExample: Sync + Send {
-    fn get_input(&self) -> &[f32];
+    fn get_input(&self) -> Vec<f32>;
     fn get_category(&self) -> usize;
     fn get_categories_count(&self) -> usize;
     fn get_expected_one_hot(&self) -> Vec<f32> {
@@ -194,7 +194,7 @@ impl Network {
     ) -> FFResult {
         let mut params: Vec<N> = Vec::with_capacity(self.params.len());
 
-        let mut previous_activations = nf.from_scalars(example.get_input());
+        let mut previous_activations = nf.from_scalars(&example.get_input());
 
         for (l, conf) in self.layer_configs.iter().enumerate() {
             let activations = (0..conf.neurons_count).map(|neuron| {
@@ -309,8 +309,8 @@ mod tests {
     }
 
     impl ClassificationExample for TestExample {
-        fn get_input(&self) -> &[f32] {
-            &self.input
+        fn get_input(&self) -> Vec<f32> {
+            self.input.clone()
         }
 
         fn get_category(&self) -> usize {
