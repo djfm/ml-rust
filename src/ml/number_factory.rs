@@ -82,6 +82,8 @@ pub trait NumberFactory<N> where N: NumberLike {
     binary_op!(sub, |x, y| x - y, a, b, 1.0, -1.0);
     binary_op!(mul, |x, y| x * y, a, b, b.scalar(), a.scalar());
     binary_op!(div, |x, y| x / y, a, b, 1.0 / b.scalar(), -a.scalar() / b.scalar().powi(2));
+    binary_op!(pow, |x: f32, y: f32| x.powf(y), a, b, b.scalar().ln() * a.scalar().powf(b.scalar()), -a.scalar() / b.scalar().powi(2));
+
     unary_op!(exp, |x: f32| x.exp(), a, a.scalar().exp());
     unary_op!(ln, |x: f32| x.ln(), a, 1.0 / a.scalar());
 
@@ -94,8 +96,13 @@ pub trait NumberFactory<N> where N: NumberLike {
             None => self.constant(result),
         }
     }
-    fn pow(&mut self, a: &N, b: &N) -> N;
-    fn neg(&mut self, a: &N) -> N;
+
+    fn neg(&mut self, a: &N) -> N {
+        match self.get_as_differentiable() {
+            Some(dnf) => dnf.compose(-a.scalar(), vec![(&a, -1.0)]),
+            None => self.constant(-a.scalar()),
+        }
+    }
 
     fn activate_neuron(&mut self, a: &N, activation: &NeuronActivation) -> N {
         let dnf = self.get_as_differentiable();
