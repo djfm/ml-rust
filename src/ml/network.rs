@@ -1,15 +1,8 @@
 use rand::prelude::*;
 use rayon::prelude::*;
 
-use crate::{
-    ml::{
-        NeuronActivation,
-        LayerActivation,
-        ErrorFunction,
-        NumberFactory,
-        NumberLike,
-        TrainingConfig,
-    },
+use crate::ml::{
+    ErrorFunction, LayerActivation, NeuronActivation, NumberFactory, NumberLike, TrainingConfig,
 };
 
 pub trait ClassificationExample: Sync + Send {
@@ -48,11 +41,37 @@ pub struct FFResult {
 }
 
 impl FFResult {
+    pub fn new() {
+        Default::default()
+    }
+
+    pub fn error(&self) -> f32 {
+        self.error
+    }
+
+    pub fn diffs(&self) -> &[f32] {
+        &self.diffs
+    }
+
+    pub fn expected_category(&self) -> usize {
+        self.expected_category
+    }
+
+    pub fn actual_category(&self) -> usize {
+        self.actual_category
+    }
+}
+
+impl FFResult {
     fn to_batch_result(self) -> BatchResult {
         BatchResult {
             error: self.error,
             diffs: self.diffs,
-            accuracy: if self.expected_category == self.actual_category { 1.0 } else { 0.0 },
+            accuracy: if self.expected_category == self.actual_category {
+                1.0
+            } else {
+                0.0
+            },
             batch_size: 1,
         }
     }
@@ -122,13 +141,19 @@ impl Network {
         let input_size = if is_first_layer {
             self.input_size
         } else {
-            self.layer_configs.last().expect("this is not the first layer").neurons_count
+            self.layer_configs
+                .last()
+                .expect("this is not the first layer")
+                .neurons_count
         };
 
         let params_offset = if is_first_layer {
             0
         } else {
-            let prev_conf = self.layer_configs.last().expect("this is not the first layer");
+            let prev_conf = self
+                .layer_configs
+                .last()
+                .expect("this is not the first layer");
             prev_conf.params_offset + prev_conf.params_count
         };
 
@@ -176,7 +201,7 @@ impl Network {
             self.layer_configs[layer - 1].neurons_count
         };
         let index = conf.params_offset + neuron * (prev_size + use_biases) + use_biases;
-        &self.params[index .. index + prev_size]
+        &self.params[index..index + prev_size]
     }
 
     pub fn feed_forward<C: ClassificationExample, N: NumberLike, F: NumberFactory<N>>(
@@ -189,42 +214,48 @@ impl Network {
         let mut previous_activations = nf.constants(&example.get_input());
 
         for (l, conf) in self.layer_configs.iter().enumerate() {
-            let activations = (0..conf.neurons_count).map(|neuron| {
-                let bias = self.get_bias(l, neuron);
+            let activations = (0..conf.neurons_count)
+                .map(|neuron| {
+                    let bias = self.get_bias(l, neuron);
 
-                if let Some(dnf) = nf.get_as_differentiable() {
-                    if conf.use_biases {
-                        params.push(dnf.variable(bias));
+                    if let Some(dnf) = nf.get_as_differentiable() {
+                        if conf.use_biases {
+                            params.push(dnf.variable(bias));
+                        }
                     }
-                }
 
-                let weights = self.get_weights(l, neuron);
-                let contributions = weights.iter().zip(previous_activations.iter()).map(
-                    |(w, a)| {
-                        let weight = if let Some(dnf) = nf.get_as_differentiable() {
-                            let w = dnf.variable(*w);
-                            params.push(w);
-                            w
-                        } else {
-                            nf.constant(*w)
-                        };
+                    let weights = self.get_weights(l, neuron);
+                    let contributions = weights
+                        .iter()
+                        .zip(previous_activations.iter())
+                        .map(|(w, a)| {
+                            let weight = if let Some(dnf) = nf.get_as_differentiable() {
+                                let w = dnf.variable(*w);
+                                params.push(w);
+                                w
+                            } else {
+                                nf.constant(*w)
+                            };
 
-                        nf.mul(&weight, a)
+                            nf.mul(&weight, a)
+                        })
+                        .collect::<Vec<N>>();
+
+                    let mut sum = nf.constant(bias);
+
+                    for c in &contributions {
+                        sum = nf.add(&sum, c);
                     }
-                ).collect::<Vec<N>>();
 
-                let mut sum = nf.constant(bias);
+                    sum = if conf.neuron_activation != NeuronActivation::None {
+                        nf.activate_neuron(&sum, &conf.neuron_activation)
+                    } else {
+                        sum
+                    };
 
-                for c in &contributions {
-                    sum = nf.add(&sum, c);
-                }
-
-                if conf.neuron_activation != NeuronActivation::None {
-                    nf.activate_neuron(&sum, &conf.neuron_activation)
-                } else {
                     sum
-                }
-            }).collect::<Vec<N>>();
+                })
+                .collect::<Vec<N>>();
 
             if conf.layer_activation != LayerActivation::None {
                 previous_activations = nf.activate_layer(&activations, &conf.layer_activation);
@@ -253,7 +284,7 @@ impl Network {
         C: ClassificationExample,
         N: NumberLike,
         NumberFactoryCreatorFunction,
-        F: NumberFactory<N>
+        F: NumberFactory<N>,
     >(
         &self,
         cnf: NumberFactoryCreatorFunction,
@@ -263,10 +294,13 @@ impl Network {
         NumberFactoryCreatorFunction: Fn() -> F + Sync,
     {
         // TODO: replace with par_iter?
-        let results: Vec<BatchResult> = examples.par_iter().map(|example| {
-            let mut nf = cnf();
-            self.feed_forward(&mut nf, example).to_batch_result()
-        }).collect();
+        let results: Vec<BatchResult> = examples
+            .iter()
+            .map(|example| {
+                let mut nf = cnf();
+                self.feed_forward(&mut nf, example).to_batch_result()
+            })
+            .collect();
 
         BatchResult::sum(&results)
     }
@@ -286,11 +320,8 @@ impl Network {
 
 #[cfg(test)]
 mod tests {
-    use crate::ml::{
-        AutoDiff,
-        FloatFactory,
-    };
     use super::*;
+    use crate::ml::{AutoDiff, FloatFactory};
 
     struct TestExample {
         input: Vec<f32>,
@@ -298,9 +329,7 @@ mod tests {
 
     impl TestExample {
         fn new(input: Vec<f32>) -> Self {
-            Self {
-                input,
-            }
+            Self { input }
         }
     }
 
@@ -340,8 +369,18 @@ mod tests {
     fn create_simple_network() -> Network {
         let mut network = Network::new(2, ErrorFunction::EuclideanDistanceSquared);
         network
-            .add_layer(2, true, NeuronActivation::LeakyRelu(0.01), LayerActivation::None)
-            .add_layer(2, false, NeuronActivation::Sigmoid, LayerActivation::SoftMax);
+            .add_layer(
+                2,
+                true,
+                NeuronActivation::LeakyRelu(0.01),
+                LayerActivation::None,
+            )
+            .add_layer(
+                2,
+                false,
+                NeuronActivation::Sigmoid,
+                LayerActivation::SoftMax,
+            );
         network
     }
 
@@ -355,11 +394,7 @@ mod tests {
     fn test_feed_forward() {
         let mut network = create_simple_network();
 
-        network.params = vec![
-            0.5, 0.1, 0.3,
-            0.2, 0.4, 0.6,
-            0.15, 0.25, 0.7, 0.2,
-        ];
+        network.params = vec![0.5, 0.1, 0.3, 0.2, 0.4, 0.6, 0.15, 0.25, 0.7, 0.2];
 
         let input = TestExample::new(vec![0.8, 0.2]);
 
@@ -369,8 +404,10 @@ mod tests {
 
         let sigmoid = |x: f32| 1.0 / (1.0 + (-x).exp());
 
-        let a: f32 = sigmoid(0.15 * (0.5 + 0.1 * 0.8 + 0.3 * 0.2) + 0.25 * (0.2 + 0.4 * 0.8 + 0.6 * 0.2));
-        let b: f32 = sigmoid(0.7 * (0.5 + 0.1 * 0.8 + 0.3 * 0.2) + 0.2 * (0.2 + 0.4 * 0.8 + 0.6 * 0.2));
+        let a: f32 =
+            sigmoid(0.15 * (0.5 + 0.1 * 0.8 + 0.3 * 0.2) + 0.25 * (0.2 + 0.4 * 0.8 + 0.6 * 0.2));
+        let b: f32 =
+            sigmoid(0.7 * (0.5 + 0.1 * 0.8 + 0.3 * 0.2) + 0.2 * (0.2 + 0.4 * 0.8 + 0.6 * 0.2));
 
         let output = vec![a.exp() / (a.exp() + b.exp()), b.exp() / (a.exp() + b.exp())];
         let expected = input.get_expected_one_hot();
@@ -382,17 +419,20 @@ mod tests {
 
     #[test]
     fn test_back_propagate() {
-
         let cnf = || AutoDiff::new();
         let mut network = create_simple_network();
-        let samples = vec![TestExample::new(vec![0.1, 0.9]), TestExample::new(vec![0.4, 0.7])];
+        let samples = vec![
+            TestExample::new(vec![0.1, 0.9]),
+            TestExample::new(vec![0.4, 0.7]),
+        ];
         let error = network.feed_batch_forward(cnf, &samples);
         let initial_params = network.params.clone();
-        let tconf = TrainingConfig { ..Default::default() };
+        let tconf = TrainingConfig {
+            ..Default::default()
+        };
         network.back_propagate(&error.diffs, &tconf);
         assert_ne!(initial_params, network.params);
         let error2 = network.feed_batch_forward(cnf, &samples);
         assert_ne!(error2.error.scalar(), error.error.scalar());
     }
-
 }

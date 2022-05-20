@@ -184,6 +184,10 @@ pub struct ADNumber {
 
 impl ADNumber {
     pub fn new(id: Option<usize>, scalar: f32) -> Self {
+        if scalar.is_nan() {
+            panic!("scalar cannot be NaN");
+        }
+
         ADNumber {
             id,
             scalar,

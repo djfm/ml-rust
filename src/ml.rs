@@ -20,6 +20,7 @@ pub use number_like::{
 };
 
 pub use network::{
+    FFResult,
     Network,
     ClassificationExample,
 };

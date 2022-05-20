@@ -167,7 +167,12 @@ pub trait NumberFactory<N> where N: NumberLike {
                     let exp = self.exp(v);
                     sum = self.add(&sum, &exp);
                     res.push(exp);
+
+                    if sum.scalar().is_infinite() {
+                        panic!("sum is infinite");
+                    }
                 }
+
 
                 for v in res.iter_mut() {
                     *v = self.div(v, &sum);
