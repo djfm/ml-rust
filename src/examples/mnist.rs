@@ -10,7 +10,7 @@ pub fn create_network() -> Network {
 
     network
         .add_layer(32, true, NeuronActivation::LeakyRelu(0.1), LayerActivation::None)
-        .add_layer(10, false, NeuronActivation::Sigmoid, LayerActivation::SoftMax)
+        .add_layer(10, false, NeuronActivation::None, LayerActivation::SoftMax)
     ;
 
     network

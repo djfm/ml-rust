@@ -3,7 +3,6 @@ use rayon::prelude::*;
 
 use crate::{
     ml::{
-        AutoDiff,
         NeuronActivation,
         LayerActivation,
         ErrorFunction,
@@ -84,34 +83,19 @@ impl BatchResult {
         &self.diffs
     }
 
-    pub fn average(results: &[BatchResult]) -> BatchResult {
-        let mut avg = results[0].clone();
+    pub fn sum(results: &[BatchResult]) -> BatchResult {
+        let mut sum = results[0].clone();
 
         for result in results.iter().skip(1) {
-            avg.error += result.error;
-            avg.accuracy += result.accuracy;
-            avg.batch_size += result.batch_size;
+            sum.error += result.error;
+            sum.accuracy += result.accuracy;
+            sum.batch_size += result.batch_size;
             for (i, diff) in result.diffs.iter().enumerate() {
-                avg.diffs[i] += diff;
+                sum.diffs[i] += diff;
             }
         }
 
-        avg.finalize()
-    }
-
-    fn finalize(mut self) -> Self {
-        if self.batch_size == 0 {
-            self.error = 100.0;
-            self.accuracy = 0.0;
-        } else {
-            self.error = 100.0 * self.error / self.batch_size as f32;
-            self.accuracy = 100.0 * self.accuracy / self.batch_size as f32;
-            for d in &mut self.diffs {
-                *d /= self.batch_size as f32;
-            }
-        }
-
-        self
+        sum
     }
 }
 
@@ -284,7 +268,7 @@ impl Network {
             self.feed_forward(&mut nf, example).to_batch_result()
         }).collect();
 
-        BatchResult::average(&results)
+        BatchResult::sum(&results)
     }
 
     pub fn back_propagate(&mut self, diffs: &[f32], tconf: &TrainingConfig) -> &mut Self {
@@ -302,7 +286,10 @@ impl Network {
 
 #[cfg(test)]
 mod tests {
-    use crate::ml::FloatFactory;
+    use crate::ml::{
+        AutoDiff,
+        FloatFactory,
+    };
     use super::*;
 
     struct TestExample {
@@ -395,6 +382,7 @@ mod tests {
 
     #[test]
     fn test_back_propagate() {
+
         let cnf = || AutoDiff::new();
         let mut network = create_simple_network();
         let samples = vec![TestExample::new(vec![0.1, 0.9]), TestExample::new(vec![0.4, 0.7])];
@@ -406,4 +394,5 @@ mod tests {
         let error2 = network.feed_batch_forward(cnf, &samples);
         assert_ne!(error2.error.scalar(), error.error.scalar());
     }
+
 }

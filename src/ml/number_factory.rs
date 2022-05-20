@@ -2,6 +2,30 @@ use crate::ml::{
     NumberLike,
 };
 
+macro_rules!binary_op {
+    ($op_name:ident, $resultComputer:expr, $left:ident, $right:ident, $left_diff:expr, $right_diff:expr) => {
+        fn $op_name(&mut self, $left: &N, $right: &N) -> N {
+            if let Some(dnf) = self.get_as_differentiable() {
+                dnf.compose($resultComputer($left.scalar(), $right.scalar()), vec![(&$left, $left_diff), (&$right, $right_diff)])
+            } else {
+                self.constant($resultComputer($left.scalar(), $right.scalar()))
+            }
+        }
+    }
+}
+
+macro_rules!unary_op {
+    ($op_name:ident, $resultComputer:expr, $x:ident, $diff:expr) => {
+        fn $op_name(&mut self, $x: &N) -> N {
+            if let Some(dnf) = self.get_as_differentiable() {
+                dnf.compose($resultComputer($x.scalar()), vec![(&$x, $diff)])
+            } else {
+                self.constant($resultComputer($x.scalar()))
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum NeuronActivation {
     None,
@@ -54,12 +78,13 @@ pub trait NumberFactory<N> where N: NumberLike {
         max_index
     }
 
-    fn add(&mut self, a: &N, b: &N) -> N;
-    fn sub(&mut self, a: &N, b: &N) -> N;
-    fn mul(&mut self, a: &N, b: &N) -> N;
-    fn div(&mut self, a: &N, b: &N) -> N;
-    fn exp(&mut self, a: &N) -> N;
-    fn ln(&mut self, a: &N) -> N;
+    binary_op!(add, |x, y| x + y, a, b, 1.0, 1.0);
+    binary_op!(sub, |x, y| x - y, a, b, 1.0, -1.0);
+    binary_op!(mul, |x, y| x * y, a, b, b.scalar(), a.scalar());
+    binary_op!(div, |x, y| x / y, a, b, 1.0 / b.scalar(), -1.0 / a.scalar().powi(2));
+    unary_op!(exp, |x: f32| x.exp(), a, a.scalar().exp());
+    unary_op!(ln, |x: f32| x.ln(), a, 1.0 / a.scalar());
+
     fn powi(&mut self, a: &N, i: i32) -> N;
     fn pow(&mut self, a: &N, b: &N) -> N;
     fn neg(&mut self, a: &N) -> N;
