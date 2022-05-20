@@ -81,11 +81,19 @@ pub trait NumberFactory<N> where N: NumberLike {
     binary_op!(add, |x, y| x + y, a, b, 1.0, 1.0);
     binary_op!(sub, |x, y| x - y, a, b, 1.0, -1.0);
     binary_op!(mul, |x, y| x * y, a, b, b.scalar(), a.scalar());
-    binary_op!(div, |x, y| x / y, a, b, 1.0 / b.scalar(), -1.0 / a.scalar().powi(2));
+    binary_op!(div, |x, y| x / y, a, b, 1.0 / b.scalar(), -a.scalar() / b.scalar().powi(2));
     unary_op!(exp, |x: f32| x.exp(), a, a.scalar().exp());
     unary_op!(ln, |x: f32| x.ln(), a, 1.0 / a.scalar());
 
-    fn powi(&mut self, a: &N, i: i32) -> N;
+    fn powi(&mut self, a: &N, i: i32) -> N {
+        let result = a.scalar().powi(i);
+        let diff = i as f32 * result / a.scalar();
+
+        match self.get_as_differentiable() {
+            Some(dnf) => dnf.compose(result, vec![(&a, diff)]),
+            None => self.constant(result),
+        }
+    }
     fn pow(&mut self, a: &N, b: &N) -> N;
     fn neg(&mut self, a: &N) -> N;
 

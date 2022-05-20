@@ -135,36 +135,6 @@ impl NumberFactory<ADNumber> for AutoDiff {
         ADNumber::new(None, scalar)
     }
 
-    fn mul(&mut self, a: &ADNumber, b: &ADNumber) -> ADNumber {
-        self.tape.record(|log| {
-            log.diff(a, b.scalar).diff(b, a.scalar);
-        }).result(a.scalar * b.scalar)
-    }
-
-    fn div(&mut self, a: &ADNumber, b: &ADNumber) -> ADNumber {
-        self.tape.record(|log| {
-            log.diff(a, 1.0 / b.scalar).diff(b, -a.scalar / b.scalar.powi(2));
-        }).result(a.scalar / b.scalar)
-    }
-
-    fn exp(&mut self, a: &ADNumber) -> ADNumber {
-        self.tape.record(|log| {
-            log.diff(a, a.scalar.exp());
-        }).result(a.scalar.exp())
-    }
-
-    fn ln(&mut self, a: &ADNumber) -> ADNumber {
-        self.tape.record(|log| {
-            log.diff(a, 1.0 / a.scalar);
-        }).result(a.scalar.ln())
-    }
-
-    fn powi(&mut self, a: &ADNumber, n: i32) -> ADNumber {
-        self.tape.record(|log| {
-            log.diff(a, n as f32 * a.scalar.powi(n - 1));
-        }).result(a.scalar.powi(n))
-    }
-
     fn pow(&mut self, a: &ADNumber, b: &ADNumber) -> ADNumber {
         // a^b = e^(b * ln(a))
         self.tape.record(|log| {
