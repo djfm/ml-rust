@@ -1,6 +1,7 @@
 use crate::{
     ml::{
         Network,
+        ClassificationExample,
         AutoDiff,
     },
 };
@@ -21,6 +22,11 @@ impl Default for TrainingConfig {
     }
 }
 
-pub fn train(network: &mut Network) {
+pub fn train<S: ClassificationExample>(
+    network: &mut Network,
+    training_set: &[S],
+    testing_set: &[S],
+    tconf: &TrainingConfig,
+) {
 
 }

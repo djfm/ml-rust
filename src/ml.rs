@@ -4,7 +4,7 @@ mod number_like;
 mod float_factory;
 mod network;
 mod training;
-mod data;
+pub mod data;
 
 pub use number_factory::{
     NumberFactory,
