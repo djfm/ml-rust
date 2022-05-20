@@ -54,7 +54,7 @@ pub fn train<S: ClassificationExample>(
             network.back_propagate(&batch_result.diffs(), &tconf);
 
             println!(
-                "Epoch {}/{}, {} samples ({:.2}%) processed. Batch accuracy is: {}\n",
+                "Epoch {}/{}, {} samples ({:.2}%) processed. Batch accuracy is: {:.2}%\n",
                 epoch, tconf.epochs, processed, progress, batch_result.accuracy(),
             );
         }

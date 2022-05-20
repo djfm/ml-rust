@@ -3,6 +3,7 @@ use rayon::prelude::*;
 
 use crate::{
     ml::{
+        AutoDiff,
         NeuronActivation,
         LayerActivation,
         ErrorFunction,
@@ -382,5 +383,19 @@ mod tests {
         let error = (output[0] - expected[0]).powi(2) + (output[1] - expected[1]).powi(2);
 
         assert_eq!(ff.error, error);
+    }
+
+    #[test]
+    fn test_back_propagate() {
+        let cnf = || AutoDiff::new();
+        let mut network = create_simple_network();
+        let samples = vec![TestExample::new(vec![0.1, 0.9]), TestExample::new(vec![0.4, 0.7])];
+        let error = network.feed_batch_forward(cnf, &samples);
+        let initial_params = network.params.clone();
+        let tconf = TrainingConfig { ..Default::default() };
+        network.back_propagate(&error.diffs, &tconf);
+        assert_ne!(initial_params, network.params);
+        let error2 = network.feed_batch_forward(cnf, &samples);
+        assert_ne!(error2.error.scalar(), error.error.scalar());
     }
 }
