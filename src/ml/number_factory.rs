@@ -30,9 +30,10 @@ pub trait PartialDiffsRecorderHelper<N> where N: NumberLike {
 pub trait NumberFactory<N> where N: NumberLike {
     fn get_as_differentiable(&mut self) -> Option<&mut (dyn DifferentiableNumberFactory<N>)>;
 
-    fn from_scalar(&mut self, scalar: f32) -> N;
-    fn from_scalars(&mut self, scalars: &[f32]) -> Vec<N> {
-        scalars.iter().map(|&s| self.from_scalar(s)).collect()
+    fn constant(&mut self, scalar: f32) -> N;
+
+    fn constants(&mut self, scalars: &[f32]) -> Vec<N> {
+        scalars.iter().map(|&s| self.constant(s)).collect()
     }
 
     fn hottest_index(&self, activations: &[N]) -> usize {
@@ -80,7 +81,7 @@ pub trait NumberFactory<N> where N: NumberLike {
                     if let Some(dnf) = dnf {
                         dnf.compose(a.scalar(), vec![(&a, 0.0)])
                     } else {
-                        self.from_scalar(0.0)
+                        self.constant(0.0)
                     }
                 }
             },
@@ -96,7 +97,7 @@ pub trait NumberFactory<N> where N: NumberLike {
                     if let Some(dnf) = dnf {
                         dnf.compose(0.0, vec![(&a, *leak)])
                     } else {
-                        self.from_scalar(*leak)
+                        self.constant(*leak)
                     }
                 }
             },
@@ -108,7 +109,7 @@ pub trait NumberFactory<N> where N: NumberLike {
                 if let Some(dnf) = dnf {
                     dnf.compose(res, vec![(&a, 1.0 * (1.0 - res))])
                 } else {
-                    self.from_scalar(res)
+                    self.constant(res)
                 }
             }
         }
@@ -119,7 +120,7 @@ pub trait NumberFactory<N> where N: NumberLike {
             LayerActivation::None => a.to_vec(),
 
             LayerActivation::SoftMax => {
-                let mut sum = self.from_scalar(0.0);
+                let mut sum = self.constant(0.0);
                 let mut res = Vec::with_capacity(a.len());
 
                 for v in a.iter() {
@@ -139,10 +140,10 @@ pub trait NumberFactory<N> where N: NumberLike {
 
     fn compute_error(&mut self, expected: &[N], actual: &[N], error_function: &ErrorFunction) -> N {
         match error_function {
-            ErrorFunction::None => self.from_scalar(0.0),
+            ErrorFunction::None => self.constant(0.0),
 
             ErrorFunction::EuclideanDistanceSquared => {
-                let mut sum = self.from_scalar(0.0);
+                let mut sum = self.constant(0.0);
                 for (a, b) in expected.iter().zip(actual.iter()) {
                     let diff = self.sub(a, b);
                     let square = self.powi(&diff, 2);
@@ -152,7 +153,7 @@ pub trait NumberFactory<N> where N: NumberLike {
             },
 
             ErrorFunction::CategoricalCrossEntropy => {
-                let mut sum = self.from_scalar(0.0);
+                let mut sum = self.constant(0.0);
                 for (e, a) in expected.iter().zip(actual.iter()) {
                     let log = self.ln(&a);
                     let mul = self.mul(&log, &e);
@@ -167,6 +168,7 @@ pub trait NumberFactory<N> where N: NumberLike {
 pub trait DifferentiableNumberFactory<N>: NumberFactory<N> where N: NumberLike {
     fn diff(&mut self, y: &N, x: &N) -> f32;
     fn compose(&mut self, result: f32, partials: Vec<(&N, f32)>) -> N;
+    fn variable(&mut self, scalar: f32) -> N;
 }
 
 pub enum NumberFactoryWrapper<'a, N, F, D> where

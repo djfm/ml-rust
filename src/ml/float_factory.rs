@@ -23,7 +23,7 @@ impl NumberFactory<f32> for FloatFactory {
         None
     }
 
-    fn from_scalar(&mut self, scalar: f32) -> f32 {
+    fn constant(&mut self, scalar: f32) -> f32 {
         scalar
     }
 

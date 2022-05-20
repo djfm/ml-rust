@@ -202,26 +202,34 @@ impl Network {
     ) -> FFResult {
         let mut params: Vec<N> = Vec::with_capacity(self.params.len());
 
-        let mut previous_activations = nf.from_scalars(&example.get_input());
+        let mut previous_activations = nf.constants(&example.get_input());
 
         for (l, conf) in self.layer_configs.iter().enumerate() {
             let activations = (0..conf.neurons_count).map(|neuron| {
                 let bias = self.get_bias(l, neuron);
 
-                if conf.use_biases {
-                    params.push(nf.from_scalar(bias));
+                if let Some(dnf) = nf.get_as_differentiable() {
+                    if conf.use_biases {
+                        params.push(dnf.variable(bias));
+                    }
                 }
 
                 let weights = self.get_weights(l, neuron);
                 let contributions = weights.iter().zip(previous_activations.iter()).map(
                     |(w, a)| {
-                        let weight = nf.from_scalar(*w);
-                        params.push(weight);
+                        let weight = if let Some(dnf) = nf.get_as_differentiable() {
+                            let w = dnf.variable(*w);
+                            params.push(w);
+                            w
+                        } else {
+                            nf.constant(*w)
+                        };
+
                         nf.mul(&weight, a)
                     }
                 ).collect::<Vec<N>>();
 
-                let mut sum = nf.from_scalar(bias);
+                let mut sum = nf.constant(bias);
 
                 for c in &contributions {
                     sum = nf.add(&sum, c);
@@ -241,7 +249,7 @@ impl Network {
             }
         }
 
-        let expected = nf.from_scalars(&example.get_expected_one_hot());
+        let expected = nf.constants(&example.get_expected_one_hot());
         let error = nf.compute_error(&expected, &previous_activations, &self.error_function);
 
         let diffs = match nf.get_as_differentiable() {
