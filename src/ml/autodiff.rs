@@ -156,43 +156,6 @@ impl NumberFactory<ADNumber> for AutoDiff {
             log.diff(a, -1.0);
         }).result(-a.scalar)
     }
-
-    fn activate_neuron(&mut self, a: &ADNumber, activation: &NeuronActivation) -> ADNumber {
-        match activation {
-            NeuronActivation::None => *a,
-
-            NeuronActivation::ReLu => {
-                if a.scalar() > 0.0 {
-                    self.tape.record(|log| {
-                        log.diff(a, 1.0);
-                    }).result(a.scalar())
-                } else {
-                    self.tape.record(|log| {
-                        log.diff(a, 0.0);
-                    }).result(0.0)
-                }
-            },
-
-            NeuronActivation::LeakyRelu(alpha) => {
-                if a.scalar() > 0.0 {
-                    self.tape.record(|log| {
-                        log.diff(a, 1.0);
-                    }).result(a.scalar())
-                } else {
-                    self.tape.record(|log| {
-                        log.diff(a, *alpha);
-                    }).result(0.0)
-                }
-            }
-
-            NeuronActivation::Sigmoid => {
-                let sigmoid = 1.0 / (1.0 + (-a.scalar).exp());
-                self.tape.record(|log| {
-                    log.diff(a, sigmoid * (1.0 - sigmoid));
-                }).result(sigmoid)
-            },
-        }
-    }
 }
 
 impl DifferentiableNumberFactory<ADNumber> for AutoDiff {
@@ -206,6 +169,18 @@ impl DifferentiableNumberFactory<ADNumber> for AutoDiff {
                 diff
             }
         }
+    }
+
+    fn compose(&mut self, result: f32, partials: Vec<(&ADNumber, f32)>) -> ADNumber {
+        let id = self.tape.len();
+
+        self.tape.record(|log| {
+            for (n, d) in partials {
+                log.diff(n, d);
+            }
+        });
+
+        ADNumber::new(id, result)
     }
 }
 
@@ -333,5 +308,21 @@ mod tests {
 
         assert_eq!(ad.diff(&o, &x), -0.310507656);
         assert_eq!(ad.diff(&o, &y), 0.077626914);
+    }
+
+    #[test]
+    fn test_relu() {
+        let mut ad = AutoDiff::new();
+        let x = ad.from_scalar(4.0);
+        let y = ad.activate_neuron(&x, &NeuronActivation::ReLu);
+        assert_eq!(ad.diff(&y, &x), 1.0);
+    }
+
+    #[test]
+    fn test_leaky_relu() {
+        let mut ad = AutoDiff::new();
+        let x = ad.from_scalar(-4.0);
+        let y = ad.activate_neuron(&x, &NeuronActivation::LeakyRelu(0.1));
+        assert_eq!(ad.diff(&y, &x), 0.1);
     }
 }

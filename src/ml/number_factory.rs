@@ -23,6 +23,10 @@ pub enum ErrorFunction {
     CategoricalCrossEntropy,
 }
 
+pub trait PartialDiffsRecorderHelper<N> where N: NumberLike {
+    fn log(dependent_variable: &N, partial_derivative: f32) -> Self;
+}
+
 pub trait NumberFactory<N> where N: NumberLike {
     fn get_as_differentiable(&mut self) -> Option<&mut (dyn DifferentiableNumberFactory<N>)>;
 
@@ -60,22 +64,40 @@ pub trait NumberFactory<N> where N: NumberLike {
     fn neg(&mut self, a: &N) -> N;
 
     fn activate_neuron(&mut self, a: &N, activation: &NeuronActivation) -> N {
+        let dnf = self.get_as_differentiable();
+
         match activation {
             NeuronActivation::None => a.clone(),
 
             NeuronActivation::ReLu => {
                 if a.scalar() > 0.0 {
-                    a.clone()
+                    if let Some(dnf) = dnf {
+                        dnf.compose(a.scalar(), vec![(&a, 1.0)])
+                    } else {
+                        a.clone()
+                    }
                 } else {
-                    self.from_scalar(0.0)
+                    if let Some(dnf) = dnf {
+                        dnf.compose(a.scalar(), vec![(&a, 0.0)])
+                    } else {
+                        self.from_scalar(0.0)
+                    }
                 }
             },
 
             NeuronActivation::LeakyRelu(leak) => {
                 if a.scalar() > 0.0 {
-                    a.clone()
+                    if let Some(dnf) = dnf {
+                        dnf.compose(a.scalar(), vec![(&a, 1.0)])
+                    } else {
+                        a.clone()
+                    }
                 } else {
-                    self.from_scalar(*leak)
+                    if let Some(dnf) = dnf {
+                        dnf.compose(0.0, vec![(&a, *leak)])
+                    } else {
+                        self.from_scalar(*leak)
+                    }
                 }
             },
 
@@ -142,6 +164,7 @@ pub trait NumberFactory<N> where N: NumberLike {
 
 pub trait DifferentiableNumberFactory<N>: NumberFactory<N> where N: NumberLike {
     fn diff(&mut self, y: &N, x: &N) -> f32;
+    fn compose(&mut self, result: f32, partials: Vec<(&N, f32)>) -> N;
 }
 
 pub enum NumberFactoryWrapper<'a, N, F, D> where
