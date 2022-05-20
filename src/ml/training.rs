@@ -39,13 +39,13 @@ pub fn train<S: ClassificationExample>(
     let timer = Timer::start(&format!("training on {} samples", training_set.len()));
     let nf_creator = || AutoDiff::new();
 
-    let windowIteratorConfig = WindowIteratorConfig::new(tconf.batch_size);
+    let win_iter_conf = WindowIteratorConfig::new(tconf.batch_size);
 
     let mut processed = 0;
     let total = training_set.len() * tconf.epochs;
 
     for epoch in 1..=tconf.epochs {
-        for batch in windows(training_set, &windowIteratorConfig) {
+        for batch in windows(training_set, &win_iter_conf) {
             let batch_result = network.feed_batch_forward(nf_creator, batch);
 
             processed += batch.len();
