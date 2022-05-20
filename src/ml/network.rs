@@ -7,7 +7,7 @@ use crate::ml::{
     ErrorFunction,
     NumberFactory,
     NumberLike,
-    FloatFactory,
+    TrainingConfig,
 };
 
 pub trait ClassificationExample: Sync + Send {
@@ -295,10 +295,23 @@ impl Network {
             self.feed_forward(&mut nf, example).to_batch_result()
         }).sum::<BatchResult>().finalize()
     }
+
+    pub fn back_propagate(&mut self, diffs: &[f32], tconf: &TrainingConfig) -> &mut Self {
+        if self.params.len() != diffs.len() {
+            panic!("params and diffs have different lengths");
+        }
+
+        for (p, d) in self.params.iter_mut().zip(diffs.iter()) {
+            *p -= tconf.learning_rate * *d;
+        }
+
+        self
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::ml::FloatFactory;
     use super::*;
 
     struct TestExample {

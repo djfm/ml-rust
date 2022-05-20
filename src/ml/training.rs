@@ -46,13 +46,17 @@ pub fn train<S: ClassificationExample>(
 
     for epoch in 1..=tconf.epochs {
         for batch in windows(training_set, &win_iter_conf) {
+            let f = Timer::start("forward pass of batch");
             let batch_result = network.feed_batch_forward(nf_creator, batch);
+            f.stop();
 
             processed += batch.len();
             let progress = 100.0 * processed as f32 / total as f32;
 
+            network.back_propagate(&batch_result.diffs(), &tconf);
+
             println!(
-                "Epoch {}/{}, {} samples ({:.2}%) processed. Batch accuracy is: {}",
+                "Epoch {}/{}, {} samples ({:.2}%) processed. Batch accuracy is: {}\n",
                 epoch, tconf.epochs, processed, progress, batch_result.accuracy(),
             );
         }
