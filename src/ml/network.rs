@@ -43,7 +43,6 @@ struct FFResult {
     diffs: Vec<f32>,
     expected_category: usize,
     actual_category: usize,
-    batch_size: usize,
 }
 
 impl FFResult {
@@ -52,16 +51,34 @@ impl FFResult {
             error: self.error,
             diffs: self.diffs,
             accuracy: if self.expected_category == self.actual_category { 1.0 } else { 0.0 },
-            batch_size: self.batch_size,
+            batch_size: 1,
         }
     }
 }
 
-struct BatchResult {
+pub struct BatchResult {
     error: f32,
     diffs: Vec<f32>,
     accuracy: f32,
     batch_size: usize,
+}
+
+impl BatchResult {
+    pub fn error(&self) -> f32 {
+        self.error
+    }
+
+    pub fn accuracy(&self) -> f32 {
+        self.accuracy
+    }
+
+    pub fn batch_size(&self) -> usize {
+        self.batch_size
+    }
+
+    pub fn diffs(&self) -> &[f32] {
+        &self.diffs
+    }
 }
 
 impl BatchResult {
@@ -74,12 +91,18 @@ impl BatchResult {
         }
     }
 
-    fn finalize(&mut self) -> &mut Self {
-        self.error = 100.0 * self.error / self.batch_size as f32;
-        self.accuracy = 100.0 - self.error;
-        for d in &mut self.diffs {
-            *d /= self.batch_size as f32;
+    fn finalize(mut self) -> Self {
+        if self.batch_size == 0 {
+            self.error = 0.0;
+            self.accuracy = 0.0;
+        } else {
+            self.error = 100.0 * self.error / self.batch_size as f32;
+            self.accuracy = 100.0 * self.accuracy / self.batch_size as f32;
+            for d in &mut self.diffs {
+                *d /= self.batch_size as f32;
+            }
         }
+
         self
     }
 }
@@ -89,21 +112,26 @@ impl std::iter::Sum for BatchResult {
     where
         I: Iterator<Item = Self>,
     {
-        if let Some(result) = iter.next() {
-            let mut sum = result;
+        iter.fold(BatchResult {
+            error: 0.0,
+            diffs: vec![],
+            accuracy: 0.0,
+            batch_size: 0,
+        }, |mut acc, x| {
+            acc.error += x.error;
+            acc.accuracy += x.accuracy;
+            acc.batch_size += x.batch_size;
 
-            for result in iter.skip(1) {
-                sum.error += result.error;
-                sum.accuracy += result.accuracy;
-                for (s, a) in sum.diffs.iter_mut().zip(result.diffs.iter()) {
-                    *s += *a;
+            if acc.diffs.len() == 0 {
+                acc.diffs = x.diffs;
+            } else {
+                for (i, d) in x.diffs.iter().enumerate() {
+                    acc.diffs[i] += d;
                 }
             }
 
-            sum
-        } else {
-            BatchResult::new(0)
-        }
+            acc
+        })
     }
 }
 
@@ -246,11 +274,10 @@ impl Network {
             diffs,
             expected_category: example.get_category(),
             actual_category: nf.hottest_index(&previous_activations),
-            batch_size: 1,
         }
     }
 
-    fn feed_batch_forward<
+    pub fn feed_batch_forward<
         C: ClassificationExample,
         N: NumberLike,
         NumberFactoryCreatorFunction,
@@ -263,17 +290,10 @@ impl Network {
     where
         NumberFactoryCreatorFunction: Fn() -> F + Sync,
     {
-        let mut res = examples.par_iter().map(|example| {
+        examples.par_iter().map(|example| {
             let mut nf = cnf();
             self.feed_forward(&mut nf, example).to_batch_result()
-        }).sum::<BatchResult>();
-
-        res.error /= res.batch_size as f32;
-        for d in &mut res.diffs {
-            *d /= res.batch_size as f32;
-        }
-
-        res
+        }).sum::<BatchResult>().finalize()
     }
 }
 

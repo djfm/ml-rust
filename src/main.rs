@@ -1,14 +1,14 @@
 mod ml;
-mod util;
-mod examples;
+pub mod util;
+pub mod examples;
 
 use ml::{
-    data::mnist,
+    data,
     TrainingConfig,
 };
 
 pub fn main() {
-    match (mnist::load_training_set(), mnist::load_testing_set()) {
+    match (data::mnist::load_training_set(), data::mnist::load_testing_set()) {
         (Ok(training_set), Ok(testing_set)) => {
             let mut network = examples::mnist::create_network();
             let tconf = TrainingConfig { ..Default::default() };
@@ -17,5 +17,4 @@ pub fn main() {
         (Err(e), _) => println!("Failed to load the training set: {}", e),
         (_, Err(e)) => println!("Failed to load the testing set: {}", e)
     }
-
 }

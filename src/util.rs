@@ -1,7 +1,29 @@
 use std::{
-    time::Duration,
+    time::{Duration, Instant},
     cell::RefCell,
 };
+
+pub struct Timer {
+    description: String,
+    t_start: Instant,
+}
+
+impl Timer {
+    pub fn start(description: &str) -> Self {
+        println!("Starting timer: {}", description);
+
+        Timer {
+            description: description.to_string(),
+            t_start: Instant::now(),
+        }
+    }
+
+    pub fn stop(self) -> Duration {
+        let elapsed = self.t_start.elapsed();
+        println!("Timer stopped: {} done in {}", self.description, human_duration(elapsed));
+        elapsed
+    }
+}
 
 pub fn human_duration(duration: Duration) -> String {
     let mut remaining_secs = duration.as_secs();
