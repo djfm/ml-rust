@@ -1,13 +1,15 @@
 use rand::prelude::*;
 use rayon::prelude::*;
 
-use crate::ml::{
-    NeuronActivation,
-    LayerActivation,
-    ErrorFunction,
-    NumberFactory,
-    NumberLike,
-    TrainingConfig,
+use crate::{
+    ml::{
+        NeuronActivation,
+        LayerActivation,
+        ErrorFunction,
+        NumberFactory,
+        NumberLike,
+        TrainingConfig,
+    },
 };
 
 pub trait ClassificationExample: Sync + Send {
@@ -79,6 +81,35 @@ impl BatchResult {
     pub fn diffs(&self) -> &[f32] {
         &self.diffs
     }
+
+    pub fn average(results: &[BatchResult]) -> BatchResult {
+        let mut avg = results.iter().fold(BatchResult {
+            error: 0.0,
+            diffs: vec![],
+            accuracy: 0.0,
+            batch_size: 0,
+        }, |mut acc, result| {
+            acc.error += result.error;
+            acc.accuracy += result.accuracy;
+            acc.batch_size += result.batch_size;
+
+            acc.diffs.iter_mut().zip(result.diffs.iter()).for_each(|(d, r)| {
+                *d += *r;
+            });
+
+            acc
+        });
+
+        let total = results.len() as f32;
+
+        avg.error /= total;
+        avg.accuracy /= total;
+        avg.diffs.iter_mut().for_each(|d| {
+            *d /= total;
+        });
+
+        avg
+    }
 }
 
 impl BatchResult {
@@ -104,34 +135,6 @@ impl BatchResult {
         }
 
         self
-    }
-}
-
-impl std::iter::Sum for BatchResult {
-    fn sum<I>(mut iter: I) -> Self
-    where
-        I: Iterator<Item = Self>,
-    {
-        iter.fold(BatchResult {
-            error: 0.0,
-            diffs: vec![],
-            accuracy: 0.0,
-            batch_size: 0,
-        }, |mut acc, x| {
-            acc.error += x.error;
-            acc.accuracy += x.accuracy;
-            acc.batch_size += x.batch_size;
-
-            if acc.diffs.len() == 0 {
-                acc.diffs = x.diffs;
-            } else {
-                for (i, d) in x.diffs.iter().enumerate() {
-                    acc.diffs[i] += d;
-                }
-            }
-
-            acc
-        })
     }
 }
 
@@ -290,10 +293,12 @@ impl Network {
     where
         NumberFactoryCreatorFunction: Fn() -> F + Sync,
     {
-        examples.par_iter().map(|example| {
+        let results: Vec<BatchResult> = examples.par_iter().map(|example| {
             let mut nf = cnf();
             self.feed_forward(&mut nf, example).to_batch_result()
-        }).sum::<BatchResult>().finalize()
+        }).collect();
+
+        BatchResult::average(&results)
     }
 
     pub fn back_propagate(&mut self, diffs: &[f32], tconf: &TrainingConfig) -> &mut Self {
