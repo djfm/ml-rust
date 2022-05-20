@@ -160,7 +160,9 @@ impl Network {
         let params_count = neurons_count * (input_size + use_biases as usize);
 
         for _ in 0..params_count {
-            self.params.push(self.rng.gen());
+            let rnd: f32 = self.rng.gen();
+            self.params.push(rnd / 100.0);
+
         }
 
         self.layer_configs.push(LayerConfig {
@@ -295,7 +297,7 @@ impl Network {
     {
         // TODO: replace with par_iter?
         let results: Vec<BatchResult> = examples
-            .iter()
+            .par_iter()
             .map(|example| {
                 let mut nf = cnf();
                 self.feed_forward(&mut nf, example).to_batch_result()
