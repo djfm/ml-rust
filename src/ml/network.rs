@@ -57,7 +57,6 @@ impl FFResult {
     }
 }
 
-#[derive(Clone)]
 struct BatchResult {
     error: f32,
     diffs: Vec<f32>,
@@ -264,10 +263,17 @@ impl Network {
     where
         NumberFactoryCreatorFunction: Fn() -> F + Sync,
     {
-        examples.par_iter().map(|example| {
+        let mut res = examples.par_iter().map(|example| {
             let mut nf = cnf();
             self.feed_forward(&mut nf, example).to_batch_result()
-        }).sum::<BatchResult>()
+        }).sum::<BatchResult>();
+
+        res.error /= res.batch_size as f32;
+        for d in &mut res.diffs {
+            *d /= res.batch_size as f32;
+        }
+
+        res
     }
 }
 
