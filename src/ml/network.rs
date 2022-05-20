@@ -279,7 +279,7 @@ impl Network {
         NumberFactoryCreatorFunction: Fn() -> F + Sync,
     {
         // TODO: replace with par_iter?
-        let results: Vec<BatchResult> = examples.iter().map(|example| {
+        let results: Vec<BatchResult> = examples.par_iter().map(|example| {
             let mut nf = cnf();
             self.feed_forward(&mut nf, example).to_batch_result()
         }).collect();

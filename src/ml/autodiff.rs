@@ -1,3 +1,5 @@
+mod computation;
+
 use std::collections::hash_map::{HashMap};
 
 use crate::ml::{
@@ -5,6 +7,10 @@ use crate::ml::{
     DifferentiableNumberFactory,
     NumberLike,
     NeuronActivation,
+};
+
+pub use computation::{
+    ComputationEnvironment,
 };
 
 struct PartialDiff {
