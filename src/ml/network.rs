@@ -97,17 +97,6 @@ impl BatchResult {
 
         avg.finalize()
     }
-}
-
-impl BatchResult {
-    fn new(batch_size: usize) -> Self {
-        BatchResult {
-            error: 0.0,
-            diffs: vec![],
-            accuracy: 0.0,
-            batch_size,
-        }
-    }
 
     fn finalize(mut self) -> Self {
         if self.batch_size == 0 {

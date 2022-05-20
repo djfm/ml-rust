@@ -102,12 +102,14 @@ pub trait NumberFactory<N> where N: NumberLike {
             },
 
             NeuronActivation::Sigmoid => {
-                let one = self.from_scalar(1.0);
-                let minus_a = self.neg(&a);
-                let exp = self.exp(&minus_a);
-                let one_plus_exp = self.add(&one, &exp);
+                let dnf = self.get_as_differentiable();
+                let res = 1.0 / (1.0 + (-a.scalar()).exp());
 
-                self.div(&one, &one_plus_exp)
+                if let Some(dnf) = dnf {
+                    dnf.compose(res, vec![(&a, 1.0 * (1.0 - res))])
+                } else {
+                    self.from_scalar(res)
+                }
             }
         }
     }
