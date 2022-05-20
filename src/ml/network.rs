@@ -40,7 +40,7 @@ struct LayerConfig {
     use_biases: bool,
 }
 
-struct FFResult {
+pub struct FFResult {
     error: f32,
     diffs: Vec<f32>,
     expected_category: usize,
@@ -58,6 +58,7 @@ impl FFResult {
     }
 }
 
+#[derive(Clone)]
 pub struct BatchResult {
     error: f32,
     diffs: Vec<f32>,
@@ -83,32 +84,18 @@ impl BatchResult {
     }
 
     pub fn average(results: &[BatchResult]) -> BatchResult {
-        let mut avg = results.iter().fold(BatchResult {
-            error: 0.0,
-            diffs: vec![],
-            accuracy: 0.0,
-            batch_size: 0,
-        }, |mut acc, result| {
-            acc.error += result.error;
-            acc.accuracy += result.accuracy;
-            acc.batch_size += result.batch_size;
+        let mut avg = results[0].clone();
 
-            acc.diffs.iter_mut().zip(result.diffs.iter()).for_each(|(d, r)| {
-                *d += *r;
-            });
+        for result in results.iter().skip(1) {
+            avg.error += result.error;
+            avg.accuracy += result.accuracy;
+            avg.batch_size += result.batch_size;
+            for (i, diff) in result.diffs.iter().enumerate() {
+                avg.diffs[i] += diff;
+            }
+        }
 
-            acc
-        });
-
-        let total = results.len() as f32;
-
-        avg.error /= total;
-        avg.accuracy /= total;
-        avg.diffs.iter_mut().for_each(|d| {
-            *d /= total;
-        });
-
-        avg
+        avg.finalize()
     }
 }
 
@@ -124,7 +111,7 @@ impl BatchResult {
 
     fn finalize(mut self) -> Self {
         if self.batch_size == 0 {
-            self.error = 0.0;
+            self.error = 100.0;
             self.accuracy = 0.0;
         } else {
             self.error = 100.0 * self.error / self.batch_size as f32;
@@ -218,7 +205,7 @@ impl Network {
         &self.params[index .. index + prev_size]
     }
 
-    fn feed_forward<C: ClassificationExample, N: NumberLike, F: NumberFactory<N>>(
+    pub fn feed_forward<C: ClassificationExample, N: NumberLike, F: NumberFactory<N>>(
         &self,
         nf: &mut F,
         example: &C,
@@ -293,7 +280,8 @@ impl Network {
     where
         NumberFactoryCreatorFunction: Fn() -> F + Sync,
     {
-        let results: Vec<BatchResult> = examples.par_iter().map(|example| {
+        // TODO: replace with par_iter?
+        let results: Vec<BatchResult> = examples.iter().map(|example| {
             let mut nf = cnf();
             self.feed_forward(&mut nf, example).to_batch_result()
         }).collect();

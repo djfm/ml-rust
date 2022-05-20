@@ -5,8 +5,6 @@ use crate::ml::{
     DifferentiableNumberFactory,
     NumberLike,
     NeuronActivation,
-    LayerActivation,
-    ErrorFunction,
 };
 
 struct PartialDiff {
@@ -45,10 +43,6 @@ struct Tape {
 }
 
 impl Tape {
-    fn new() -> Self {
-        Default::default()
-    }
-
     fn record<D: FnOnce(&mut DiffDefinerHelper)>(&mut self, definer: D) -> &mut Self {
         let mut log = DiffDefinerHelper::new();
         definer(&mut log);
@@ -107,50 +101,50 @@ impl NumberFactory<ADNumber> for AutoDiff {
     }
 
     fn add(&mut self, a: &ADNumber, b: &ADNumber) -> ADNumber {
-        self.tape.record(|mut log| {
+        self.tape.record(|log| {
             log.diff(a, 1.0).diff(b, 1.0);
         }).result(a.scalar + b.scalar)
     }
 
     fn sub(&mut self, a: &ADNumber, b: &ADNumber) -> ADNumber {
-        self.tape.record(|mut log| {
+        self.tape.record(|log| {
             log.diff(a, 1.0).diff(b, -1.0);
         }).result(a.scalar - b.scalar)
     }
 
     fn mul(&mut self, a: &ADNumber, b: &ADNumber) -> ADNumber {
-        self.tape.record(|mut log| {
+        self.tape.record(|log| {
             log.diff(a, b.scalar).diff(b, a.scalar);
         }).result(a.scalar * b.scalar)
     }
 
     fn div(&mut self, a: &ADNumber, b: &ADNumber) -> ADNumber {
-        self.tape.record(|mut log| {
+        self.tape.record(|log| {
             log.diff(a, 1.0 / b.scalar).diff(b, -a.scalar / b.scalar.powi(2));
         }).result(a.scalar / b.scalar)
     }
 
     fn exp(&mut self, a: &ADNumber) -> ADNumber {
-        self.tape.record(|mut log| {
+        self.tape.record(|log| {
             log.diff(a, a.scalar.exp());
         }).result(a.scalar.exp())
     }
 
     fn ln(&mut self, a: &ADNumber) -> ADNumber {
-        self.tape.record(|mut log| {
+        self.tape.record(|log| {
             log.diff(a, 1.0 / a.scalar);
         }).result(a.scalar.ln())
     }
 
     fn powi(&mut self, a: &ADNumber, n: i32) -> ADNumber {
-        self.tape.record(|mut log| {
+        self.tape.record(|log| {
             log.diff(a, n as f32 * a.scalar.powi(n - 1));
         }).result(a.scalar.powi(n))
     }
 
     fn pow(&mut self, a: &ADNumber, b: &ADNumber) -> ADNumber {
         // a^b = e^(b * ln(a))
-        self.tape.record(|mut log| {
+        self.tape.record(|log| {
             log
                 .diff(a, a.scalar.powf(b.scalar - 1.0))
                 .diff(b, a.scalar.ln() * a.scalar.powf(b.scalar));
@@ -158,7 +152,7 @@ impl NumberFactory<ADNumber> for AutoDiff {
     }
 
     fn neg(&mut self, a: &ADNumber) -> ADNumber {
-        self.tape.record(|mut log| {
+        self.tape.record(|log| {
             log.diff(a, -1.0);
         }).result(-a.scalar)
     }
@@ -169,11 +163,11 @@ impl NumberFactory<ADNumber> for AutoDiff {
 
             NeuronActivation::ReLu => {
                 if a.scalar() > 0.0 {
-                    self.tape.record(|mut log| {
+                    self.tape.record(|log| {
                         log.diff(a, 1.0);
                     }).result(a.scalar())
                 } else {
-                    self.tape.record(|mut log| {
+                    self.tape.record(|log| {
                         log.diff(a, 0.0);
                     }).result(0.0)
                 }
