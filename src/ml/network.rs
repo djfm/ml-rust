@@ -102,7 +102,7 @@ impl BatchResult {
         &self.diffs
     }
 
-    pub fn sum(results: &[BatchResult]) -> BatchResult {
+    pub fn aggregate(results: &[BatchResult]) -> BatchResult {
         let mut sum = results[0].clone();
 
         for result in results.iter().skip(1) {
@@ -113,6 +113,9 @@ impl BatchResult {
                 sum.diffs[i] += diff;
             }
         }
+
+        sum.error /= sum.batch_size as f32;
+        sum.accuracy /= sum.batch_size as f32 / 100.0;
 
         sum
     }
@@ -220,11 +223,18 @@ impl Network {
                 .map(|neuron| {
                     let bias = self.get_bias(l, neuron);
 
-                    if let Some(dnf) = nf.get_as_differentiable() {
+                    let mut sum = if let Some(dnf) = nf.get_as_differentiable() {
                         if conf.use_biases {
-                            params.push(dnf.variable(bias));
+                            let var = dnf.variable(bias);
+                            params.push(var);
+                            var
+                        } else {
+                            dnf.constant(bias)
                         }
-                    }
+                    } else {
+                        nf.constant(bias)
+                    };
+
 
                     let weights = self.get_weights(l, neuron);
                     let contributions = weights
@@ -243,8 +253,6 @@ impl Network {
                         })
                         .collect::<Vec<N>>();
 
-                    let mut sum = nf.constant(bias);
-
                     for c in &contributions {
                         sum = nf.add(&sum, c);
                     }
@@ -256,6 +264,7 @@ impl Network {
                     };
 
                     sum
+
                 })
                 .collect::<Vec<N>>();
 
@@ -304,7 +313,7 @@ impl Network {
             })
             .collect();
 
-        BatchResult::sum(&results)
+        BatchResult::aggregate(&results)
     }
 
     pub fn back_propagate(&mut self, diffs: &[f32], tconf: &TrainingConfig) -> &mut Self {
@@ -396,7 +405,7 @@ mod tests {
     fn test_feed_forward() {
         let mut network = create_simple_network();
 
-        network.params = vec![0.5, 0.1, 0.3, 0.2, 0.4, 0.6, 0.15, 0.25, 0.7, 0.2];
+        network.params = vec![0.5, 0.1, 0.3, 0.2, 0.4, 0.6, 0.15, 0.25, 0.15, 0.7];
 
         let input = TestExample::new(vec![0.8, 0.2]);
 
@@ -405,13 +414,22 @@ mod tests {
         let ff = network.feed_forward(&mut nf, &input);
 
         let sigmoid = |x: f32| 1.0 / (1.0 + (-x).exp());
+        let mut anl0 = |x: f32| nf.activate_neuron(&x, &NeuronActivation::LeakyRelu(0.01));
 
         let a: f32 =
-            sigmoid(0.15 * (0.5 + 0.1 * 0.8 + 0.3 * 0.2) + 0.25 * (0.2 + 0.4 * 0.8 + 0.6 * 0.2));
-        let b: f32 =
-            sigmoid(0.7 * (0.5 + 0.1 * 0.8 + 0.3 * 0.2) + 0.2 * (0.2 + 0.4 * 0.8 + 0.6 * 0.2));
+            sigmoid(
+                0.15 * anl0(0.5 + 0.1 * 0.8 + 0.3 * 0.2) +
+                0.25 * anl0(0.2 + 0.4 * 0.8 + 0.6 * 0.2)
+            );
 
-        let output = vec![a.exp() / (a.exp() + b.exp()), b.exp() / (a.exp() + b.exp())];
+        let b: f32 =
+            sigmoid(
+                0.7 * anl0(0.5 + 0.1 * 0.8 + 0.3 * 0.2) +
+                0.2 * anl0(0.2 + 0.4 * 0.8 + 0.6 * 0.2)
+        );
+
+        let denom = a.exp() + b.exp();
+        let output = vec![a.exp() / denom, b.exp() / denom];
         let expected = input.get_expected_one_hot();
 
         let error = (output[0] - expected[0]).powi(2) + (output[1] - expected[1]).powi(2);
@@ -422,16 +440,21 @@ mod tests {
     #[test]
     fn test_back_propagate() {
         let cnf = || AutoDiff::new();
+        let tconf = TrainingConfig {
+            ..Default::default()
+        };
+
         let mut network = create_simple_network();
+        network.params = vec![0.5, 0.1, 0.3, 0.2, 0.4, 0.6, 0.15, 0.25, 0.7, 0.2];
+        let initial_params = network.params.clone();
+
         let samples = vec![
             TestExample::new(vec![0.1, 0.9]),
             TestExample::new(vec![0.4, 0.7]),
         ];
+
         let error = network.feed_batch_forward(cnf, &samples);
-        let initial_params = network.params.clone();
-        let tconf = TrainingConfig {
-            ..Default::default()
-        };
+
         network.back_propagate(&error.diffs, &tconf);
         assert_ne!(initial_params, network.params);
         let error2 = network.feed_batch_forward(cnf, &samples);

@@ -108,7 +108,7 @@ pub trait NumberFactory<N> where N: NumberLike {
         let dnf = self.get_as_differentiable();
 
         match activation {
-            NeuronActivation::None => a.clone(),
+            NeuronActivation::None => *a,
 
             NeuronActivation::ReLu => {
                 if a.scalar() > 0.0 {
@@ -189,9 +189,18 @@ pub trait NumberFactory<N> where N: NumberLike {
             ErrorFunction::None => self.constant(0.0),
 
             ErrorFunction::EuclideanDistanceSquared => {
+                if expected.len() != actual.len() {
+                    panic!("expected.len() != actual.len()");
+                }
+
+                if expected.is_empty() {
+                    panic!("expected is empty");
+                }
+
+
                 let mut sum = self.constant(0.0);
-                for (a, b) in expected.iter().zip(actual.iter()) {
-                    let diff = self.sub(a, b);
+                for (e, a) in expected.iter().zip(actual.iter()) {
+                    let diff = self.sub(e, a);
                     let square = self.powi(&diff, 2);
                     sum = self.add(&sum, &square);
                 }

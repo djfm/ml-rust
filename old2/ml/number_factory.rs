@@ -22,14 +22,14 @@ pub trait NumberFactory<N> where N: NumberLike {
         match activation {
             NeuronActivation::None => self.unary_operation(neuron, self.to_scalar(neuron), 1.0),
             NeuronActivation::ReLu => {
-                if neuron > self.create_variable(0.0) {
+                if neuron.scalar() > 0.0 {
                     self.unary_operation(neuron, self.to_scalar(neuron), 1.0)
                 } else {
-                    self.create_variable(0.0)
+                    neuron.clone()
                 }
             },
             NeuronActivation::LeakyReLU(alpha) => {
-                if neuron > self.create_variable(0.0) {
+                if neuron.to_scalar() > 0.0 {
                     self.unary_operation(neuron, self.to_scalar(neuron), 1.0)
                 } else {
                     self.unary_operation(neuron, self.to_scalar(neuron), *alpha)
