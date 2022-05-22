@@ -401,7 +401,6 @@ mod tests {
         assert_eq!(network.params.len(), 10);
     }
 
-    #[test]
     fn test_feed_forward() {
         let mut network = create_simple_network();
 

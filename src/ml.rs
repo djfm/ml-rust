@@ -5,6 +5,7 @@ mod float_factory;
 mod network;
 mod training;
 pub mod data;
+pub mod computation;
 
 pub use number_factory::{
     NumberFactory,
