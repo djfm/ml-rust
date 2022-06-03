@@ -94,7 +94,7 @@ impl TrainingConfig {
         self.progress = (
             self.training_samples_seen as f32 /
             self.training_samples_count as f32
-        ).powf(0.5);
+        ).powf(2.0);
 
         self.learning_rate =
             self.initial_learning_rate * (1.0 - self.progress) +
