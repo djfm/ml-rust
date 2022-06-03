@@ -316,13 +316,13 @@ impl Network {
         BatchResult::aggregate(&results)
     }
 
-    pub fn back_propagate(&mut self, diffs: &[f32], tconf: &TrainingConfig) -> &mut Self {
+    pub fn back_propagate(&mut self, diffs: &[f32], t_conf: &TrainingConfig) -> &mut Self {
         if self.params.len() != diffs.len() {
             panic!("params and diffs have different lengths");
         }
 
         for (p, d) in self.params.iter_mut().zip(diffs.iter()) {
-            *p -= tconf.learning_rate() * *d;
+            *p -= t_conf.learning_rate() * *d;
         }
 
         self
