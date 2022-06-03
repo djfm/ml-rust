@@ -91,13 +91,13 @@ pub fn train<S: ClassificationExample>(
             network.back_propagate(&batch_result.diffs(), &t_conf);
 
             println!(
-                "Epoch {}/{}, {} samples ({:.2}%) processed. Batch accuracy is: {:.2}%\n",
+                "Epoch {}/{}, {} samples ({:.2}%) processed. Batch accuracy is: {:.2}%",
                 epoch, t_conf.epochs, processed, progress, batch_result.accuracy(),
             );
 
             t_conf.update(&batch_result);
 
-            println!("Updated training params: {:#?}", t_conf);
+            println!("Updated training params: {:#?}\n", t_conf);
         }
 
         println!("\nEpoch {}/{} finished. Testing...", epoch, t_conf.epochs);
