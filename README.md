@@ -7,3 +7,13 @@ Currently I have a reasonably efficient MNIST recognizer working, with around 95
 For MNIST, training is done in batches, whose size reduces slightly after each batch, as well as the learning rate.
 
 Optimization is made via stochastic gradient descent, using (self implemented) automatic differentiation for computing error gradients and parameter updates.
+
+# Testing
+
+**Warning**: Only tested on linux.
+
+```bash
+git clone git@github.com:djfm/ml-rust.git
+cd ml-rust
+cargo run --release
+```
