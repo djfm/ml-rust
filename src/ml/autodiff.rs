@@ -8,10 +8,6 @@ use crate::ml::{
     NumberLike,
 };
 
-pub use computation::{
-    ComputationEnvironment,
-};
-
 struct PartialDiff {
     with_respect_to_id: usize,
     diff: f32,
