@@ -225,13 +225,3 @@ pub trait DifferentiableNumberFactory<N>: NumberFactory<N> where N: NumberLike {
     fn compose(&mut self, result: f32, partials: Vec<(&N, f32)>) -> N;
     fn variable(&mut self, scalar: f32) -> N;
 }
-
-pub enum NumberFactoryWrapper<'a, N, F, D> where
-    N: NumberLike,
-    F: NumberFactory<N>,
-    D: DifferentiableNumberFactory<N>
-{
-    Regular(&'a mut F),
-    Differentiable(&'a mut D),
-    _None(std::marker::PhantomData<N>),
-}

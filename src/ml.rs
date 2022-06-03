@@ -10,7 +10,6 @@ pub mod computation;
 pub use number_factory::{
     NumberFactory,
     DifferentiableNumberFactory,
-    NumberFactoryWrapper,
     LayerActivation,
     NeuronActivation,
     ErrorFunction,

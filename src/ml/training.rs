@@ -1,3 +1,6 @@
+use rand::thread_rng;
+use rand::seq::SliceRandom;
+
 use crate::{
     ml::{
         Network,
@@ -15,12 +18,12 @@ use crate::{
 
 #[derive(Clone, Debug)]
 pub struct TrainingConfig {
-    pub epochs: usize,
-    pub learning_rate: f32,
-    pub learning_rate_decay: f32,
-    pub batch_size: usize,
-    pub batch_size_fp: f32,
-    pub batch_size_decay: f32,
+    epochs: usize,
+    learning_rate: f32,
+    learning_rate_decay: f32,
+    batch_size: usize,
+    batch_size_fp: f32,
+    batch_size_decay: f32,
 }
 
 impl Default for TrainingConfig {
@@ -42,6 +45,7 @@ impl TrainingConfig {
             epochs,
             learning_rate,
             batch_size,
+            batch_size_fp: batch_size as f32,
             ..Default::default()
         }
     }
@@ -51,6 +55,10 @@ impl TrainingConfig {
         self.batch_size_fp -= self.batch_size_fp * 0.001 / batch_result.batch_size() as f32;
         self.batch_size = self.batch_size_fp.round() as usize;
         self
+    }
+
+    pub fn learning_rate(&self) -> f32 {
+        self.learning_rate
     }
 }
 
@@ -71,8 +79,10 @@ pub fn train<S: ClassificationExample>(
     let mut processed = 0;
     let total = training_set.len() * tconf.epochs;
 
+    let mut tset = training_set.to_vec();
+
     for epoch in 1..=tconf.epochs {
-        for batch in windows(training_set, &win_iter_conf) {
+        for batch in windows(&tset, &win_iter_conf) {
             let batch_result = network.feed_batch_forward(nf_creator, batch);
 
             processed += batch.len();
@@ -94,6 +104,8 @@ pub fn train<S: ClassificationExample>(
         let ff_provider = || FloatFactory::new();
         let error = network.feed_batch_forward(ff_provider, testing_set);
         println!("Testing finished. Accuracy is: {:.2}%\n", error.accuracy());
+
+        tset.shuffle(&mut thread_rng());
     }
 
     timer.stop();

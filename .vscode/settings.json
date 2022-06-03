@@ -2,5 +2,8 @@
   "cSpell.words": [
     "combine",
     "input_deps"
+  ],
+  "cSpell.ignoreWords": [
+    "tset"
   ]
 }

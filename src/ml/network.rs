@@ -5,7 +5,7 @@ use crate::ml::{
     ErrorFunction, LayerActivation, NeuronActivation, NumberFactory, NumberLike, TrainingConfig,
 };
 
-pub trait ClassificationExample: Sync + Send {
+pub trait ClassificationExample: Sync + Send + Clone {
     fn get_input(&self) -> Vec<f32>;
     fn get_category(&self) -> usize;
     fn get_categories_count(&self) -> usize;
@@ -34,7 +34,6 @@ struct LayerConfig {
 }
 
 pub struct FFResult {
-    epoch: usize,
     error: f32,
     diffs: Vec<f32>,
     expected_category: usize,
@@ -66,7 +65,6 @@ impl FFResult {
 impl FFResult {
     fn to_batch_result(self) -> BatchResult {
         BatchResult {
-            epoch: self.epoch,
             error: self.error,
             diffs: self.diffs,
             accuracy: if self.expected_category == self.actual_category {
@@ -81,7 +79,6 @@ impl FFResult {
 
 #[derive(Clone)]
 pub struct BatchResult {
-    epoch: usize,
     error: f32,
     diffs: Vec<f32>,
     accuracy: f32,
@@ -287,7 +284,6 @@ impl Network {
         };
 
         FFResult {
-            epoch: 0,
             error: error.scalar(),
             diffs,
             expected_category: example.get_category(),
@@ -326,7 +322,7 @@ impl Network {
         }
 
         for (p, d) in self.params.iter_mut().zip(diffs.iter()) {
-            *p -= tconf.learning_rate * *d;
+            *p -= tconf.learning_rate() * *d;
         }
 
         self
@@ -338,6 +334,7 @@ mod tests {
     use super::*;
     use crate::ml::{AutoDiff, FloatFactory};
 
+    #[derive(Clone)]
     struct TestExample {
         input: Vec<f32>,
     }
@@ -443,9 +440,7 @@ mod tests {
     #[test]
     fn test_back_propagate() {
         let cnf = || AutoDiff::new();
-        let tconf = TrainingConfig {
-            ..Default::default()
-        };
+        let tconf = TrainingConfig::new(5, 0.01, 32);
 
         let mut network = create_simple_network();
         network.params = vec![0.5, 0.1, 0.3, 0.2, 0.4, 0.6, 0.15, 0.25, 0.7, 0.2];

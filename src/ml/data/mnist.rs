@@ -13,6 +13,7 @@ use crate::{
     },
 };
 
+#[derive(Clone)]
 pub struct Image {
     pub pixels: Vec<u8>,
     pub label: u8,
