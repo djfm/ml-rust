@@ -1,5 +1,11 @@
 use rand::thread_rng;
 use rand::seq::SliceRandom;
+use crossbeam_utils::thread;
+use crossbeam_channel::{
+    unbounded,
+    Sender,
+    Receiver,
+};
 
 use crate::{
     ml::{
@@ -13,8 +19,38 @@ use crate::{
         windows,
         Timer,
         WindowIteratorConfig,
-    }
+    },
+    plotter,
 };
+
+#[derive(Copy, Clone, Debug)]
+enum AccuracyDataPoint {
+    Batch (f32, f32),
+    Epoch (f32, f32),
+}
+
+impl plotter::DataPoint for AccuracyDataPoint {
+    fn x(&self) -> f32 {
+        match self {
+            AccuracyDataPoint::Batch (x, _) => *x,
+            AccuracyDataPoint::Epoch (x, _) => *x,
+        }
+    }
+
+    fn y(&self) -> f32 {
+        match self {
+            AccuracyDataPoint::Batch (_, y) => *y,
+            AccuracyDataPoint::Epoch (_, y) => *y,
+        }
+    }
+
+    fn series_name(&self) -> &str {
+        match self {
+            AccuracyDataPoint::Batch (_, _) => "Batch Accuracy",
+            AccuracyDataPoint::Epoch (_, _) => "Epoch Accuracy",
+        }
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct TrainingConfig {
@@ -76,11 +112,12 @@ impl TrainingConfig {
 
 
 
-pub fn train<'a, S: ClassificationExample>(
+fn do_train<'a, S: ClassificationExample>(
     network: &'a mut Network,
     training_set: &[S],
     testing_set: &[S],
     training_config: TrainingConfig,
+    send: &mut Sender<AccuracyDataPoint>,
 ) -> &'a mut Network {
     let t_conf = &mut training_config.clone();
     let timer = Timer::start(&format!("training on {} samples", training_set.len()));
@@ -91,14 +128,19 @@ pub fn train<'a, S: ClassificationExample>(
     let mut processed = 0;
     let total = training_set.len() * t_conf.epochs;
 
-    let mut tset = training_set.to_vec();
+    let mut t_set = training_set.to_vec();
 
     for epoch in 1..=t_conf.epochs {
-        for batch in windows(&tset, &win_iter_conf) {
+        for batch in windows(&t_set, &win_iter_conf) {
             let batch_result = network.feed_batch_forward(nf_creator, batch);
 
             processed += batch.len();
             let progress = 100.0 * processed as f32 / total as f32;
+            let point = AccuracyDataPoint::Batch(progress, batch_result.accuracy());
+
+            if let Err(error) = send.send(point) {
+                println!("Error sending batch data point {}: ", error);
+            }
 
             network.back_propagate(&batch_result.diffs(), &t_conf);
 
@@ -117,9 +159,48 @@ pub fn train<'a, S: ClassificationExample>(
         let error = network.feed_batch_forward(ff_provider, testing_set);
         println!("Testing finished. Accuracy is: {:.2}%\n", error.accuracy());
 
-        tset.shuffle(&mut thread_rng());
+        if let Err(error) = send.send(AccuracyDataPoint::Epoch(
+            epoch as f32,
+            error.accuracy(),
+        )) {
+            println!("Error sending epoch data point {}: ", error);
+        }
+
+        t_set.shuffle(&mut thread_rng());
     }
 
     timer.stop();
     network
+}
+
+
+
+pub fn train<'a, S: ClassificationExample>(
+    network: &'a mut Network,
+    training_set: &'a [S],
+    testing_set: &'a [S],
+    training_config: TrainingConfig,
+) -> &'a mut Network {
+    let (mut sender, mut receiver): (Sender<AccuracyDataPoint>, Receiver<AccuracyDataPoint>) = unbounded();
+
+    let handles = thread::scope(|s| {
+        s.spawn(|_| {
+            do_train(
+                network,
+                training_set, testing_set,
+                training_config, &mut sender,
+            )
+        });
+
+        s.spawn(|_| {
+            plotter::plot(&mut receiver);
+        });
+    });
+
+    match handles {
+        Ok(_) => {
+            network
+        },
+        Err(e) => panic!("training failed {:#?}", e),
+    }
 }

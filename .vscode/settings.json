@@ -7,6 +7,8 @@
   "cSpell.ignoreWords": [
     "mnist",
     "powi",
+    "recv",
+    "systemstat",
     "tset"
   ]
 }

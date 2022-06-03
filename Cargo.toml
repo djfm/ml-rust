@@ -7,5 +7,8 @@ edition = "2018"
 
 [dependencies]
 rand = "0.8.4"
-sdl2 = "0.35.2"
 rayon = "1.5"
+crossbeam = "0.8.1"
+crossbeam-utils = "0.8.8"
+crossbeam-channel = "0.5.4"
+sdl2 = "0.35.2"
