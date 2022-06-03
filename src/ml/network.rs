@@ -304,7 +304,6 @@ impl Network {
     where
         NumberFactoryCreatorFunction: Fn() -> F + Sync,
     {
-        // TODO: replace with par_iter?
         let results: Vec<BatchResult> = examples
             .par_iter()
             .map(|example| {
