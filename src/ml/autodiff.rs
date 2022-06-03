@@ -183,7 +183,7 @@ impl ADNumber {
     pub fn new(id: Option<usize>, scalar: f32) -> Self {
         if scalar.is_nan() {
             // TODO: FIXME?
-            // panic!("scalar cannot be NaN");
+            panic!("scalar cannot be NaN");
         }
 
         ADNumber {

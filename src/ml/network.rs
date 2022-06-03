@@ -164,8 +164,7 @@ impl Network {
 
         for _ in 0..params_count {
             let rnd: f32 = self.rng.gen();
-            self.params.push(rnd / 100.0);
-
+            self.params.push(rnd / params_count as f32);
         }
 
         self.layer_configs.push(LayerConfig {
