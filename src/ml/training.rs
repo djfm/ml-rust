@@ -31,10 +31,10 @@ impl Default for TrainingConfig {
         Self {
             epochs: 5,
             learning_rate: 0.001,
-            learning_rate_decay: 0.001,
+            learning_rate_decay: 0.01,
             batch_size: 50,
             batch_size_fp: 50.0,
-            batch_size_decay: 0.001,
+            batch_size_decay: 0.01,
         }
     }
 }
@@ -51,8 +51,8 @@ impl TrainingConfig {
     }
 
     pub fn update(&mut self, batch_result: &BatchResult) -> &mut Self {
-        self.learning_rate -= self.learning_rate * 0.001 / batch_result.batch_size() as f32;
-        self.batch_size_fp -= self.batch_size_fp * 0.001 / batch_result.batch_size() as f32;
+        self.learning_rate -= self.learning_rate * self.learning_rate_decay / batch_result.batch_size() as f32;
+        self.batch_size_fp -= self.batch_size_fp * self.batch_size_decay / batch_result.batch_size() as f32;
         self.batch_size = self.batch_size_fp.round() as usize;
         self
     }
@@ -70,37 +70,37 @@ pub fn train<S: ClassificationExample>(
     testing_set: &[S],
     training_config: TrainingConfig,
 ) {
-    let tconf = &mut training_config.clone();
+    let t_conf = &mut training_config.clone();
     let timer = Timer::start(&format!("training on {} samples", training_set.len()));
     let nf_creator = || AutoDiff::new();
 
-    let win_iter_conf = WindowIteratorConfig::new(tconf.batch_size);
+    let win_iter_conf = WindowIteratorConfig::new(t_conf.batch_size);
 
     let mut processed = 0;
-    let total = training_set.len() * tconf.epochs;
+    let total = training_set.len() * t_conf.epochs;
 
     let mut tset = training_set.to_vec();
 
-    for epoch in 1..=tconf.epochs {
+    for epoch in 1..=t_conf.epochs {
         for batch in windows(&tset, &win_iter_conf) {
             let batch_result = network.feed_batch_forward(nf_creator, batch);
 
             processed += batch.len();
             let progress = 100.0 * processed as f32 / total as f32;
 
-            network.back_propagate(&batch_result.diffs(), &tconf);
+            network.back_propagate(&batch_result.diffs(), &t_conf);
 
             println!(
                 "Epoch {}/{}, {} samples ({:.2}%) processed. Batch accuracy is: {:.2}%\n",
-                epoch, tconf.epochs, processed, progress, batch_result.accuracy(),
+                epoch, t_conf.epochs, processed, progress, batch_result.accuracy(),
             );
 
-            tconf.update(&batch_result);
+            t_conf.update(&batch_result);
 
-            println!("Updated training params: {:?}", tconf);
+            println!("Updated training params: {:#?}", t_conf);
         }
 
-        println!("\nEpoch {}/{} finished. Testing...", epoch, tconf.epochs);
+        println!("\nEpoch {}/{} finished. Testing...", epoch, t_conf.epochs);
         let ff_provider = || FloatFactory::new();
         let error = network.feed_batch_forward(ff_provider, testing_set);
         println!("Testing finished. Accuracy is: {:.2}%\n", error.accuracy());

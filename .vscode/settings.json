@@ -4,6 +4,8 @@
     "input_deps"
   ],
   "cSpell.ignoreWords": [
+    "mnist",
+    "powi",
     "tset"
   ]
 }

@@ -402,6 +402,7 @@ mod tests {
         assert_eq!(network.params.len(), 10);
     }
 
+    #[test]
     fn test_feed_forward() {
         let mut network = create_simple_network();
 
@@ -413,34 +414,25 @@ mod tests {
 
         let ff = network.feed_forward(&mut nf, &input);
 
-        let sigmoid = |x: f32| 1.0 / (1.0 + (-x).exp());
-        let mut anl0 = |x: f32| nf.activate_neuron(&x, &NeuronActivation::LeakyRelu(0.01));
-
-        let a: f32 =
-            sigmoid(
-                0.15 * anl0(0.5 + 0.1 * 0.8 + 0.3 * 0.2) +
-                0.25 * anl0(0.2 + 0.4 * 0.8 + 0.6 * 0.2)
-            );
-
-        let b: f32 =
-            sigmoid(
-                0.7 * anl0(0.5 + 0.1 * 0.8 + 0.3 * 0.2) +
-                0.2 * anl0(0.2 + 0.4 * 0.8 + 0.6 * 0.2)
-        );
-
-        let denom = a.exp() + b.exp();
-        let output = vec![a.exp() / denom, b.exp() / denom];
+        let ia = 0.5 + 0.1 * 0.8 + 0.3 * 0.2;
+        let ib = 0.2 + 0.4 * 0.8 + 0.6 * 0.2;
+        let a = nf.activate_neuron(&ia, &network.layer_configs[0].neuron_activation);
+        let b = nf.activate_neuron(&ib, &network.layer_configs[0].neuron_activation);
+        let ic = 0.15 * a + 0.25 * b;
+        let id = 0.15 * a + 0.7 * b;
+        let c = nf.activate_neuron(&ic, &network.layer_configs[1].neuron_activation);
+        let d = nf.activate_neuron(&id, &network.layer_configs[1].neuron_activation);
+        let i_out = vec![c, d];
+        let out = nf.activate_layer(&i_out, &network.layer_configs[1].layer_activation);
         let expected = input.get_expected_one_hot();
-
-        let error = (output[0] - expected[0]).powi(2) + (output[1] - expected[1]).powi(2);
-
+        let error = nf.compute_error(&expected, &out, &network.error_function);
         assert_eq!(ff.error, error);
     }
 
     #[test]
     fn test_back_propagate() {
         let cnf = || AutoDiff::new();
-        let tconf = TrainingConfig::new(5, 0.01, 32);
+        let t_conf = TrainingConfig::new(5, 0.01, 32);
 
         let mut network = create_simple_network();
         network.params = vec![0.5, 0.1, 0.3, 0.2, 0.4, 0.6, 0.15, 0.25, 0.7, 0.2];
@@ -453,7 +445,7 @@ mod tests {
 
         let error = network.feed_batch_forward(cnf, &samples);
 
-        network.back_propagate(&error.diffs, &tconf);
+        network.back_propagate(&error.diffs, &t_conf);
         assert_ne!(initial_params, network.params);
         let error2 = network.feed_batch_forward(cnf, &samples);
         assert_ne!(error2.error.scalar(), error.error.scalar());
