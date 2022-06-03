@@ -6,7 +6,6 @@ use crate::ml::{
     NumberFactory,
     DifferentiableNumberFactory,
     NumberLike,
-    NeuronActivation,
 };
 
 pub use computation::{
@@ -59,8 +58,6 @@ impl Default for TapeRecordResult {
 }
 
 impl TapeRecordResult {
-    pub fn new() { Default::default() }
-
     pub fn result(&self, scalar: f32) -> ADNumber {
         ADNumber::new(self.next_number_id, scalar)
     }
@@ -204,6 +201,9 @@ impl NumberLike for ADNumber {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ml::{
+        NeuronActivation,
+    };
 
     #[test]
     fn test_add_simple() {

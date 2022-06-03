@@ -8,8 +8,6 @@ use std::{
 use crate::{
     ml::{
         ClassificationExample,
-        NumberFactory,
-        FloatFactory,
     },
 };
 
@@ -161,10 +159,14 @@ pub fn load_testing_set() -> Result<Vec<Image>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ml::{
+        NumberFactory,
+        FloatFactory,
+    };
 
     #[test]
     fn test_image() {
-        let mut ff = FloatFactory::new();
+        let ff = FloatFactory::new();
         let img = &load_training_set().unwrap()[0];
         let input = img.get_input();
         let label = img.get_category();
