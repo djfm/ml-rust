@@ -281,10 +281,10 @@ pub fn plot<P>(receiver: &mut Receiver<P>) where
         }
 
         if need_update {
-            canvas.set_draw_color(Color::RGB(255, 255, 255));
+            canvas.set_draw_color(Color::RGB(0, 0, 0));
             canvas.clear();
 
-            canvas.set_draw_color(Color::RGB(0, 0, 0));
+            canvas.set_draw_color(Color::RGB(0, 255, 0));
 
             series_collection.for_each_series(|s| {
                 canvas.draw_lines(s.points()).expect("SDL2 draw lines");

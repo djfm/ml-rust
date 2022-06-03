@@ -91,7 +91,10 @@ impl TrainingConfig {
 
     pub fn update(&mut self, batch_result: &BatchResult) -> &mut Self {
         self.training_samples_seen += batch_result.batch_size();
-        self.progress = self.training_samples_seen as f32 / self.training_samples_count as f32;
+        self.progress = (
+            self.training_samples_seen as f32 /
+            self.training_samples_count as f32
+        ).powf(0.5);
 
         self.learning_rate =
             self.initial_learning_rate * (1.0 - self.progress) +
