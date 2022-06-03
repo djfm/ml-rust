@@ -8,7 +8,4 @@ edition = "2018"
 [dependencies]
 rand = "0.8.4"
 sdl2 = "0.35.2"
-num_cpus = "1.13.1"
 rayon = "1.5"
-crossbeam = "0.8"
-crossbeam-utils="0.8.8"

@@ -1,7 +1,8 @@
 {
   "cSpell.words": [
     "combine",
-    "input_deps"
+    "input_deps",
+    "powf"
   ],
   "cSpell.ignoreWords": [
     "mnist",

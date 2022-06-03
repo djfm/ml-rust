@@ -431,7 +431,7 @@ mod tests {
     #[test]
     fn test_back_propagate() {
         let cnf = || AutoDiff::new();
-        let t_conf = TrainingConfig::new(5, 0.01, 32);
+        let t_conf = TrainingConfig::new(5, 2, 0.01, 0.0001, 32, 4);
 
         let mut network = create_simple_network();
         network.params = vec![0.5, 0.1, 0.3, 0.2, 0.4, 0.6, 0.15, 0.25, 0.7, 0.2];

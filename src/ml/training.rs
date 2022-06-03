@@ -19,41 +19,53 @@ use crate::{
 #[derive(Clone, Debug)]
 pub struct TrainingConfig {
     epochs: usize,
+    training_samples_count: usize,
+    training_samples_seen: usize,
+    initial_batch_size: usize,
+    initial_learning_rate: f32,
     learning_rate: f32,
-    learning_rate_decay: f32,
+    target_learning_rate: f32,
     batch_size: usize,
-    batch_size_fp: f32,
-    batch_size_decay: f32,
-}
-
-impl Default for TrainingConfig {
-    fn default() -> Self {
-        Self {
-            epochs: 5,
-            learning_rate: 0.001,
-            learning_rate_decay: 0.01,
-            batch_size: 50,
-            batch_size_fp: 50.0,
-            batch_size_decay: 0.01,
-        }
-    }
+    target_batch_size: usize,
+    progress: f32,
 }
 
 impl TrainingConfig {
-    pub fn new(epochs: usize, learning_rate: f32, batch_size: usize) -> Self {
+    pub fn new(
+        epochs: usize,
+        training_set_size: usize,
+        learning_rate: f32,
+        target_learning_rate: f32,
+        batch_size: usize,
+        target_batch_size: usize
+    ) -> Self {
         Self {
             epochs,
             learning_rate,
+            target_learning_rate,
             batch_size,
-            batch_size_fp: batch_size as f32,
-            ..Default::default()
+            target_batch_size,
+            progress: 0.0,
+            training_samples_count: epochs * training_set_size,
+            training_samples_seen: 0,
+            initial_batch_size: batch_size,
+            initial_learning_rate: learning_rate,
         }
     }
 
     pub fn update(&mut self, batch_result: &BatchResult) -> &mut Self {
-        self.learning_rate -= self.learning_rate * self.learning_rate_decay / batch_result.batch_size() as f32;
-        self.batch_size_fp -= self.batch_size_fp * self.batch_size_decay / batch_result.batch_size() as f32;
-        self.batch_size = self.batch_size_fp.round() as usize;
+        self.training_samples_seen += batch_result.batch_size();
+        self.progress = self.training_samples_seen as f32 / self.training_samples_count as f32;
+
+        self.learning_rate =
+            self.initial_learning_rate * (1.0 - self.progress) +
+            self.target_learning_rate * self.progress;
+
+        self.batch_size = (
+            self.initial_batch_size as f32 * (1.0 - self.progress) +
+            self.target_batch_size as f32 * self.progress
+        ).round() as usize;
+
         self
     }
 
@@ -64,12 +76,12 @@ impl TrainingConfig {
 
 
 
-pub fn train<S: ClassificationExample>(
-    network: &mut Network,
+pub fn train<'a, S: ClassificationExample>(
+    network: &'a mut Network,
     training_set: &[S],
     testing_set: &[S],
     training_config: TrainingConfig,
-) {
+) -> &'a mut Network {
     let t_conf = &mut training_config.clone();
     let timer = Timer::start(&format!("training on {} samples", training_set.len()));
     let nf_creator = || AutoDiff::new();
@@ -109,4 +121,5 @@ pub fn train<S: ClassificationExample>(
     }
 
     timer.stop();
+    network
 }

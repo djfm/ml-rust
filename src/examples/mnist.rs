@@ -1,8 +1,12 @@
+use crate::ml;
+use crate::ml::data;
+
 use crate::ml::{
     Network,
     ErrorFunction,
     NeuronActivation,
     LayerActivation,
+    TrainingConfig,
 };
 
 pub fn create_network() -> Network {
@@ -14,6 +18,19 @@ pub fn create_network() -> Network {
     ;
 
     network
+}
+
+pub fn train() -> Network {
+    match (data::mnist::load_training_set(), data::mnist::load_testing_set()) {
+        (Ok(mut training_set), Ok(testing_set)) => {
+            let mut network = create_network();
+            let t_conf = TrainingConfig::new(5, training_set.len(), 0.01, 0.0001, 128, 8);
+            ml::train(&mut network, &mut training_set, &testing_set, t_conf);
+            network
+        },
+        (Err(e), _) => panic!("Failed to load the training set: {}", e),
+        (_, Err(e)) => panic!("Failed to load the testing set: {}", e)
+    }
 }
 
 #[cfg(test)]
