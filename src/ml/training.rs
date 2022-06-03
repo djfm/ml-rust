@@ -4,6 +4,7 @@ use crate::{
         ClassificationExample,
         AutoDiff,
         FloatFactory,
+        BatchResult,
     },
     util::{
         windows,
@@ -12,10 +13,14 @@ use crate::{
     }
 };
 
+#[derive(Clone, Debug)]
 pub struct TrainingConfig {
     pub epochs: usize,
     pub learning_rate: f32,
+    pub learning_rate_decay: f32,
     pub batch_size: usize,
+    pub batch_size_fp: f32,
+    pub batch_size_decay: f32,
 }
 
 impl Default for TrainingConfig {
@@ -23,8 +28,29 @@ impl Default for TrainingConfig {
         Self {
             epochs: 5,
             learning_rate: 0.001,
+            learning_rate_decay: 0.001,
             batch_size: 50,
+            batch_size_fp: 50.0,
+            batch_size_decay: 0.001,
         }
+    }
+}
+
+impl TrainingConfig {
+    pub fn new(epochs: usize, learning_rate: f32, batch_size: usize) -> Self {
+        Self {
+            epochs,
+            learning_rate,
+            batch_size,
+            ..Default::default()
+        }
+    }
+
+    pub fn update(&mut self, batch_result: &BatchResult) -> &mut Self {
+        self.learning_rate -= self.learning_rate * 0.001 / batch_result.batch_size() as f32;
+        self.batch_size_fp -= self.batch_size_fp * 0.001 / batch_result.batch_size() as f32;
+        self.batch_size = self.batch_size_fp.round() as usize;
+        self
     }
 }
 
@@ -34,8 +60,9 @@ pub fn train<S: ClassificationExample>(
     network: &mut Network,
     training_set: &[S],
     testing_set: &[S],
-    tconf: &TrainingConfig,
+    training_config: TrainingConfig,
 ) {
+    let tconf = &mut training_config.clone();
     let timer = Timer::start(&format!("training on {} samples", training_set.len()));
     let nf_creator = || AutoDiff::new();
 
@@ -57,6 +84,10 @@ pub fn train<S: ClassificationExample>(
                 "Epoch {}/{}, {} samples ({:.2}%) processed. Batch accuracy is: {:.2}%\n",
                 epoch, tconf.epochs, processed, progress, batch_result.accuracy(),
             );
+
+            tconf.update(&batch_result);
+
+            println!("Updated training params: {:?}", tconf);
         }
 
         println!("\nEpoch {}/{} finished. Testing...", epoch, tconf.epochs);

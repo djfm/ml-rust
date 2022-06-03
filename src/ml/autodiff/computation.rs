@@ -7,7 +7,7 @@ pub enum ComputationRecord {
 
 use crate::ml::NumberLike;
 
-type Computation = Fn(&mut ComputationEnvironment) -> ();
+type Computation = dyn Fn(&mut ComputationEnvironment) -> ();
 
 pub struct ComputationEnvironment {
 
@@ -24,16 +24,6 @@ impl NumberLike for ADNum {
         return self.scalar;
     }
 }
-
-/*
-impl ops::Add<ADNum> for ADNum {
-    type Output = ADNum;
-
-    fn add(self, other: ADNum) -> ADNum {
-
-    }
-}
-*/
 
 pub struct ADNumFactory {
     max_id: usize,

@@ -34,6 +34,7 @@ struct LayerConfig {
 }
 
 pub struct FFResult {
+    epoch: usize,
     error: f32,
     diffs: Vec<f32>,
     expected_category: usize,
@@ -65,6 +66,7 @@ impl FFResult {
 impl FFResult {
     fn to_batch_result(self) -> BatchResult {
         BatchResult {
+            epoch: self.epoch,
             error: self.error,
             diffs: self.diffs,
             accuracy: if self.expected_category == self.actual_category {
@@ -79,6 +81,7 @@ impl FFResult {
 
 #[derive(Clone)]
 pub struct BatchResult {
+    epoch: usize,
     error: f32,
     diffs: Vec<f32>,
     accuracy: f32,
@@ -114,7 +117,7 @@ impl BatchResult {
             }
         }
 
-        sum.error /= sum.batch_size as f32;
+        sum.error /= sum.batch_size as f32 / 100.0;
         sum.accuracy /= sum.batch_size as f32 / 100.0;
 
         sum
@@ -284,6 +287,7 @@ impl Network {
         };
 
         FFResult {
+            epoch: 0,
             error: error.scalar(),
             diffs,
             expected_category: example.get_category(),

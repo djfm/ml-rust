@@ -22,6 +22,7 @@ pub use number_like::{
 
 pub use network::{
     FFResult,
+    BatchResult,
     Network,
     ClassificationExample,
 };
