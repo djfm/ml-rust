@@ -24,7 +24,7 @@ pub fn train() -> Network {
     match (data::mnist::load_training_set("lib"), data::mnist::load_testing_set("lib")) {
         (Ok(mut training_set), Ok(testing_set)) => {
             let mut network = create_network();
-            let t_conf = TrainingConfig::new(5, training_set.len(), 0.01, 0.0001, 128, 8);
+            let t_conf = TrainingConfig::new(5, training_set.len(), 0.0001, 0.01, 128, 8);
             ml::train(&mut network, &mut training_set, &testing_set, t_conf);
             network
         },
