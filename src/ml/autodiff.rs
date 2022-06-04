@@ -206,7 +206,7 @@ mod tests {
     fn test_add_simple() {
         let mut ad = AutoDiff::new();
         let x = ad.variable(1.0);
-        let y = ad.add(&x, &x);
+        let y = ad.add(x, x);
         let dy_dx = ad.diff(&y, &x);
         assert_eq!(y.scalar(), 2.0);
         assert_eq!(dy_dx, 2.0);
@@ -216,7 +216,7 @@ mod tests {
     fn test_dx2_dx() {
         let mut ad = AutoDiff::new();
         let x = ad.variable(2.0);
-        let y = ad.mul(&x, &x);
+        let y = ad.mul(x, x);
         let dy_dx = ad.diff(&y, &x);
         assert_eq!(dy_dx, 4.0);
         assert_eq!(y.scalar(), 4.0);
@@ -227,8 +227,8 @@ mod tests {
         let mut ad = AutoDiff::new();
         let x = ad.variable(2.0);
         let y = ad.variable(3.0);
-        let pz = ad.mul(&x, &x);
-        let z = ad.mul(&y, &pz);
+        let pz = ad.mul(x, x);
+        let z = ad.mul(y, pz);
 
         assert_eq!(ad.diff(&z, &x), 12.0);
         assert_eq!(ad.diff(&z, &y), 4.0);
@@ -239,7 +239,7 @@ mod tests {
         let mut ad = AutoDiff::new();
         let x = ad.variable(1.0);
         let y = ad.variable(2.0);
-        let z = ad.sub(&x, &y);
+        let z = ad.sub(x, y);
         let dz_dx = ad.diff(&z, &x);
         let dz_dy = ad.diff(&z, &y);
 
@@ -253,7 +253,7 @@ mod tests {
         let mut ad = AutoDiff::new();
         let x = ad.variable(3.0);
         let y = ad.variable(2.0);
-        let z = ad.mul(&x, &y);
+        let z = ad.mul(x, y);
         let dz_dx = ad.diff(&z, &x);
         let dz_dy = ad.diff(&z, &y);
 
@@ -267,7 +267,7 @@ mod tests {
         let mut ad = AutoDiff::new();
         let x = ad.variable(1.0);
         let y = ad.variable(2.0);
-        let z = ad.div(&x, &y);
+        let z = ad.div(x, y);
         let dz_dx = ad.diff(&z, &x);
         let dz_dy = ad.diff(&z, &y);
 
@@ -280,7 +280,7 @@ mod tests {
     fn test_exp() {
         let mut ad = AutoDiff::new();
         let x = ad.variable(1.0);
-        let y = ad.exp(&x);
+        let y = ad.exp(x);
         let dy_dx = ad.diff(&y, &x);
 
         assert_eq!(dy_dx, 1.0f32.exp());
@@ -291,9 +291,9 @@ mod tests {
         let mut ad = AutoDiff::new();
         let x = ad.variable(3.0);
         let y = ad.variable(4.0);
-        let exp_x = ad.exp(&x);
-        let exp_x_minus_y = ad.sub(&exp_x, &y);
-        let o = ad.div(&y, &exp_x_minus_y);
+        let exp_x = ad.exp(x);
+        let exp_x_minus_y = ad.sub(exp_x, y);
+        let o = ad.div(y, exp_x_minus_y);
 
         assert_eq!(ad.diff(&o, &x), -0.310507656);
         assert_eq!(ad.diff(&o, &y), 0.077626914);

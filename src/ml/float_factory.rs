@@ -27,26 +27,26 @@ impl NumberFactory<f32> for FloatFactory {
         scalar
     }
 
-    fn add(&mut self, a: &f32, b: &f32) -> f32 {
+    fn add(&mut self, a: f32, b: f32) -> f32 {
         a + b
     }
 
-    fn sub(&mut self, a: &f32, b: &f32) -> f32 {
+    fn sub(&mut self, a: f32, b: f32) -> f32 {
         a - b
     }
 
-    fn mul(&mut self, a: &f32, b: &f32) -> f32 {
+    fn mul(&mut self, a: f32, b: f32) -> f32 {
         a * b
     }
 
-    fn div(&mut self, a: &f32, b: &f32) -> f32 {
+    fn div(&mut self, a: f32, b: f32) -> f32 {
         a / b
     }
-    fn exp(&mut self, a: &f32) -> f32 {
+    fn exp(&mut self, a: f32) -> f32 {
         a.exp()
     }
 
-    fn ln(&mut self, a: &f32) -> f32 {
+    fn ln(&mut self, a: f32) -> f32 {
         a.ln()
     }
 
@@ -54,8 +54,8 @@ impl NumberFactory<f32> for FloatFactory {
         a.powi(i)
     }
 
-    fn pow(&mut self, a: &f32, b: &f32) -> f32 {
-        a.powf(*b)
+    fn pow(&mut self, a: f32, b: f32) -> f32 {
+        a.powf(b)
     }
 
     fn neg(&mut self, a: &f32) -> f32 {

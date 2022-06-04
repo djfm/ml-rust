@@ -5,6 +5,7 @@
     "powf"
   ],
   "cSpell.ignoreWords": [
+    "deps",
     "mnist",
     "powi",
     "recv",

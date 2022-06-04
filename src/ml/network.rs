@@ -239,21 +239,21 @@ impl Network {
                     let contributions = weights
                         .iter()
                         .zip(previous_activations.iter())
-                        .map(|(w, a)| {
+                        .map(|(&w, &a)| {
                             let weight = if let Some(dnf) = nf.get_as_differentiable() {
-                                let w = dnf.variable(*w);
+                                let w = dnf.variable(w);
                                 params.push(w);
                                 w
                             } else {
-                                nf.constant(*w)
+                                nf.constant(w)
                             };
 
-                            nf.mul(&weight, a)
+                            nf.mul(weight, a)
                         })
                         .collect::<Vec<N>>();
 
-                    for c in &contributions {
-                        sum = nf.add(&sum, c);
+                    for &c in &contributions {
+                        sum = nf.add(sum, c);
                     }
 
                     sum = if conf.neuron_activation != NeuronActivation::None {

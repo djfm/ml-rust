@@ -2,28 +2,16 @@ use crate::ml::{
     NumberLike,
 };
 
-macro_rules!binary_op {
-    ($op_name:ident, $resultComputer:expr, $left:ident, $right:ident, $left_diff:expr, $right_diff:expr) => {
-        fn $op_name(&mut self, $left: &N, $right: &N) -> N {
+macro_rules!declare_op {
+   ($op_name:ident, $f:expr, ($($dep:ident),*), ($($diff:expr),*)) => {
+       fn $op_name(&mut self, $($dep:N),*) -> N {
             if let Some(dnf) = self.get_as_differentiable() {
-                dnf.compose($resultComputer($left.scalar(), $right.scalar()), vec![(&$left, $left_diff), (&$right, $right_diff)])
+                dnf.compose($f($($dep.scalar()),*),[$($dep),*].iter().zip([$($diff),*].iter()).map(|(dep, diff)| (dep, *diff)).collect())
             } else {
-                self.constant($resultComputer($left.scalar(), $right.scalar()))
+                self.constant($f($($dep.scalar()),*))
             }
-        }
-    }
-}
-
-macro_rules!unary_op {
-    ($op_name:ident, $resultComputer:expr, $x:ident, $diff:expr) => {
-        fn $op_name(&mut self, $x: &N) -> N {
-            if let Some(dnf) = self.get_as_differentiable() {
-                dnf.compose($resultComputer($x.scalar()), vec![(&$x, $diff)])
-            } else {
-                self.constant($resultComputer($x.scalar()))
-            }
-        }
-    }
+       }
+   };
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -78,14 +66,13 @@ pub trait NumberFactory<N> where N: NumberLike {
         max_index
     }
 
-    binary_op!(add, |x, y| x + y, a, b, 1.0, 1.0);
-    binary_op!(sub, |x, y| x - y, a, b, 1.0, -1.0);
-    binary_op!(mul, |x, y| x * y, a, b, b.scalar(), a.scalar());
-    binary_op!(div, |x, y| x / y, a, b, 1.0 / b.scalar(), -a.scalar() / b.scalar().powi(2));
-    binary_op!(pow, |x: f32, y: f32| x.powf(y), a, b, b.scalar().ln() * a.scalar().powf(b.scalar()), -a.scalar() / b.scalar().powi(2));
-
-    unary_op!(exp, |x: f32| x.exp(), a, a.scalar().exp());
-    unary_op!(ln, |x: f32| x.ln(), a, 1.0 / a.scalar());
+    declare_op!(add, |a, b| a + b, (a, b), (1.0, 1.0));
+    declare_op!(sub, |a, b| a - b, (a, b), (1.0, -1.0));
+    declare_op!(mul, |a, b| a * b, (a, b), (b.scalar(), a.scalar()));
+    declare_op!(div, |a, b| a / b, (a, b), (1.0 / b.scalar(), -a.scalar() / b.scalar().powi(2)));
+    declare_op!(pow, |a: f32, b| a.powf(b), (a, b), (b.scalar().ln() * a.scalar().powf(b.scalar()), -a.scalar() / b.scalar().powi(2)));
+    declare_op!(exp, |x: f32| x.exp(), (a), (a.scalar().exp()));
+    declare_op!(ln, |x: f32| x.ln(), (a), (1.0 / a.scalar()));
 
     fn powi(&mut self, a: &N, i: i32) -> N {
         let result = a.scalar().powi(i);
@@ -163,20 +150,20 @@ pub trait NumberFactory<N> where N: NumberLike {
                 let mut sum = self.constant(0.0);
                 let mut res = Vec::with_capacity(a.len());
 
-                for v in a.iter() {
+                for &v in a.iter() {
                     let exp = self.exp(v);
 
                     if exp.scalar().is_infinite() {
                         panic!("sum is infinite");
                     }
 
-                    sum = self.add(&sum, &exp);
+                    sum = self.add(sum, exp);
                     res.push(exp);
                 }
 
 
                 for v in res.iter_mut() {
-                    *v = self.div(v, &sum);
+                    *v = self.div(*v, sum);
                 }
 
                 res
@@ -199,20 +186,20 @@ pub trait NumberFactory<N> where N: NumberLike {
 
 
                 let mut sum = self.constant(0.0);
-                for (e, a) in expected.iter().zip(actual.iter()) {
+                for (&e, &a) in expected.iter().zip(actual.iter()) {
                     let diff = self.sub(e, a);
                     let square = self.powi(&diff, 2);
-                    sum = self.add(&sum, &square);
+                    sum = self.add(sum, square);
                 }
                 sum
             },
 
             ErrorFunction::CategoricalCrossEntropy => {
                 let mut sum = self.constant(0.0);
-                for (e, a) in expected.iter().zip(actual.iter()) {
-                    let log = self.ln(&a);
-                    let mul = self.mul(&log, &e);
-                    sum = self.sub(&sum, &mul);
+                for (&e, &a) in expected.iter().zip(actual.iter()) {
+                    let log = self.ln(a);
+                    let mul = self.mul(log, e);
+                    sum = self.sub(sum, mul);
                 }
                 sum
             },
