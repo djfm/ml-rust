@@ -193,6 +193,18 @@ impl NumberLike for ADNumber {
     }
 }
 
+impl PartialEq for ADNumber {
+    fn eq(&self, other: &Self) -> bool {
+        self.scalar == other.scalar
+    }
+}
+
+impl PartialOrd for ADNumber {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.scalar().partial_cmp(&other.scalar())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

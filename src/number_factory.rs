@@ -1,4 +1,8 @@
-pub trait NumberLike: Copy + Clone {
+use crate::util::{
+    max_value,
+};
+
+pub trait NumberLike: Copy + Clone + PartialEq + PartialOrd {
     fn scalar(&self) -> f32;
 }
 
@@ -149,8 +153,10 @@ pub trait NumberFactory<N> where N: NumberLike {
             LayerActivation::SoftMax => {
                 let mut sum = self.constant(0.0);
                 let mut res = Vec::with_capacity(a.len());
+                let max = max_value(a);
+                let input = a.iter().map(|x| self.sub(*x, max)).collect::<Vec<_>>();
 
-                for &v in a.iter() {
+                for &v in input.iter() {
                     let exp = self.exp(v);
 
                     if exp.scalar().is_infinite() {

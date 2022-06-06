@@ -3,6 +3,10 @@ use std::{
     cell::RefCell,
 };
 
+use crate::{
+    NumberLike,
+};
+
 pub struct Timer {
     description: String,
     t_start: Instant,
@@ -133,6 +137,18 @@ pub fn average_scalar_vectors(sources: &[Vec<f32>]) -> Vec<f32> {
     }
 
     result
+}
+
+pub fn max_value<T: NumberLike>(data: &[T]) -> T {
+    let mut max = data[0];
+
+    for d in data {
+        if d > &max {
+            max = *d;
+        }
+    }
+
+    max
 }
 
 #[cfg(test)]
