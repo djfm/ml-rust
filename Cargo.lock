@@ -140,13 +140,6 @@ dependencies = [
 name = "ml-rust"
 version = "0.1.0"
 dependencies = [
- "mlib",
-]
-
-[[package]]
-name = "mlib"
-version = "0.1.0"
-dependencies = [
  "crossbeam",
  "crossbeam-channel",
  "crossbeam-utils",

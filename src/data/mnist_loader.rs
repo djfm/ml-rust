@@ -5,10 +5,8 @@ use std::{
 };
 
 
-use crate::{
-    ml::{
-        ClassificationExample,
-    },
+use crate::network::{
+    ClassificationExample,
 };
 
 #[derive(Clone)]
@@ -159,7 +157,7 @@ pub fn load_testing_set(prefix: &str) -> Result<Vec<Image>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ml::{
+    use crate::{
         NumberFactory,
         FloatFactory,
     };
@@ -167,7 +165,7 @@ mod tests {
     #[test]
     fn test_image() {
         let ff = FloatFactory::new();
-        let img = &load_training_set(".").unwrap()[0];
+        let img = &load_training_set("data").unwrap()[0];
         let input = img.get_input();
         let label = img.get_category();
         let mut one_hot = vec![0.0; input.len()];

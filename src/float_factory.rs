@@ -1,4 +1,4 @@
-use crate::ml::{
+use crate::{
     NumberLike,
     NumberFactory,
     DifferentiableNumberFactory,

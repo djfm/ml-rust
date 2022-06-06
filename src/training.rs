@@ -8,13 +8,11 @@ use crossbeam_channel::{
 };
 
 use crate::{
-    ml::{
-        Network,
-        ClassificationExample,
-        AutoDiff,
-        FloatFactory,
-        BatchResult,
-    },
+    Network,
+    ClassificationExample,
+    AutoDiff,
+    FloatFactory,
+    BatchResult,
     util::{
         windows,
         Timer,

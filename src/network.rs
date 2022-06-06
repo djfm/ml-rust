@@ -1,8 +1,13 @@
 use rand::prelude::*;
 use rayon::prelude::*;
 
-use crate::ml::{
-    ErrorFunction, LayerActivation, NeuronActivation, NumberFactory, NumberLike, TrainingConfig,
+use crate::{
+    ErrorFunction,
+    LayerActivation,
+    NeuronActivation,
+    NumberFactory,
+    NumberLike,
+    TrainingConfig,
 };
 
 pub trait ClassificationExample: Sync + Send + Clone {
@@ -330,7 +335,7 @@ impl Network {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ml::{AutoDiff, FloatFactory};
+    use crate::{AutoDiff, FloatFactory};
 
     #[derive(Clone)]
     struct TestExample {

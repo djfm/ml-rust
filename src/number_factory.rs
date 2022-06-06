@@ -1,6 +1,6 @@
-use crate::ml::{
-    NumberLike,
-};
+pub trait NumberLike: Copy + Clone {
+    fn scalar(&self) -> f32;
+}
 
 macro_rules!declare_op {
    ($op_name:ident, $f:expr, ($($dep:ident),*), ($($diff:expr),*)) => {

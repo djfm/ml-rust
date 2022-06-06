@@ -1,8 +1,6 @@
-mod computation;
-
 use std::collections::hash_map::{HashMap};
 
-use crate::ml::{
+use crate::{
     NumberFactory,
     DifferentiableNumberFactory,
     NumberLike,
@@ -198,7 +196,7 @@ impl NumberLike for ADNumber {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ml::{
+    use crate::{
         NeuronActivation,
     };
 

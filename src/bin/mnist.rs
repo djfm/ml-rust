@@ -1,7 +1,6 @@
-use mlib::ml;
-use mlib::ml::data;
+use ml_rust::data::mnist_loader;
 
-use mlib::ml::{
+use ml_rust::{
     Network,
     ErrorFunction,
     NeuronActivation,
@@ -21,11 +20,11 @@ pub fn create_network() -> Network {
 }
 
 pub fn train() -> Network {
-    match (data::mnist::load_training_set("lib"), data::mnist::load_testing_set("lib")) {
+    match (mnist_loader::load_training_set("data"), mnist_loader::load_testing_set("data")) {
         (Ok(mut training_set), Ok(testing_set)) => {
             let mut network = create_network();
             let t_conf = TrainingConfig::new(5, training_set.len(), 0.0001, 0.01, 128, 8);
-            ml::train(&mut network, &mut training_set, &testing_set, t_conf);
+            ml_rust::train(&mut network, &mut training_set, &testing_set, t_conf);
             network
         },
         (Err(e), _) => panic!("Failed to load the training set: {}", e),
@@ -33,18 +32,21 @@ pub fn train() -> Network {
     }
 }
 
+pub fn main() {
+    train();
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mlib::ml::{
-        data::mnist,
+    use ml_rust::{
         AutoDiff,
         FloatFactory,
     };
 
     #[test]
     fn test_compute_the_same_with_different_number_factories() {
-        let ts = mnist::load_training_set("lib").expect("the mnist training set should be available");
+        let ts = mnist_loader::load_training_set("data").expect("the mnist training set should be available");
         let input = &ts[0];
         let net = create_network();
 
