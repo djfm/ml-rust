@@ -42,6 +42,7 @@ impl NumberFactory<f32> for FloatFactory {
     fn div(&mut self, a: f32, b: f32) -> f32 {
         a / b
     }
+
     fn exp(&mut self, a: f32) -> f32 {
         a.exp()
     }
