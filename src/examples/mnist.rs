@@ -1,7 +1,7 @@
-use lib::ml;
-use lib::ml::data;
+use mlib::ml;
+use mlib::ml::data;
 
-use lib::ml::{
+use mlib::ml::{
     Network,
     ErrorFunction,
     NeuronActivation,
@@ -36,7 +36,7 @@ pub fn train() -> Network {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use lib::ml::{
+    use mlib::ml::{
         data::mnist,
         AutoDiff,
         FloatFactory,
