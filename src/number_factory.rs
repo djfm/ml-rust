@@ -10,7 +10,14 @@ macro_rules!declare_op {
    ($op_name:ident, $f:expr, ($($dep:ident),*), ($($diff:expr),*)) => {
        fn $op_name(&mut self, $($dep:N),*) -> N {
             if let Some(dnf) = self.get_as_differentiable() {
-                dnf.compose($f($($dep.scalar()),*),[$($dep),*].iter().zip([$($diff),*].iter()).map(|(dep, diff)| (dep, *diff)).collect())
+                dnf.compose(
+                    $f($($dep.scalar()),*),
+                    [$($dep),*].iter().zip(
+                        [$($diff),*].iter()
+                    ).map(
+                        |(dep, diff)| (dep, *diff)
+                    ).collect()
+            )
             } else {
                 self.constant($f($($dep.scalar()),*))
             }

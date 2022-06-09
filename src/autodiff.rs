@@ -1,5 +1,7 @@
 use std::collections::hash_map::{HashMap};
 
+use rand::prelude::*;
+
 use crate::{
     NumberFactory,
     DifferentiableNumberFactory,
@@ -161,6 +163,11 @@ impl DifferentiableNumberFactory<ADNumber> for AutoDiff {
     }
 
     fn variable(&mut self, scalar: f32) -> ADNumber {
+        if scalar.is_nan() {
+            // FIXME: This is a hack to avoid NaN gradients.
+            return ADNumber::new(None, 0.5 - thread_rng().gen::<f32>());
+        }
+
         let id = Some(self.tape.len());
         self.tape.push_empty_record();
         ADNumber::new(id, scalar)
@@ -176,7 +183,7 @@ pub struct ADNumber {
 impl ADNumber {
     pub fn new(id: Option<usize>, scalar: f32) -> Self {
         if scalar.is_nan() {
-            // TODO: FIXME?
+            // TODO: FIXME
             panic!("scalar cannot be NaN");
         }
 

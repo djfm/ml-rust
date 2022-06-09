@@ -7,15 +7,34 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "Debug executable 'ml-rust'",
+      "name": "Debug unit tests in library 'ml-rust'",
       "cargo": {
         "args": [
-          "build",
-          "--bin=ml-rust",
+          "test",
+          "--no-run",
+          "--lib",
           "--package=ml-rust"
         ],
         "filter": {
           "name": "ml-rust",
+          "kind": "lib"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug executable 'mnist'",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin=mnist",
+          "--package=ml-rust"
+        ],
+        "filter": {
+          "name": "mnist",
           "kind": "bin"
         }
       },
@@ -25,16 +44,16 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "Debug unit tests in executable 'ml-rust'",
+      "name": "Debug unit tests in executable 'mnist'",
       "cargo": {
         "args": [
           "test",
           "--no-run",
-          "--bin=ml-rust",
+          "--bin=mnist",
           "--package=ml-rust"
         ],
         "filter": {
-          "name": "ml-rust",
+          "name": "mnist",
           "kind": "bin"
         }
       },

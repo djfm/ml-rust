@@ -12,8 +12,14 @@ pub fn create_network() -> Network {
     let mut network = Network::new(28 * 28, ErrorFunction::CategoricalCrossEntropy);
 
     network
-        .add_layer(32, true, NeuronActivation::LeakyRelu(0.1), LayerActivation::None)
-        .add_layer(10, false, NeuronActivation::None, LayerActivation::SoftMax)
+        .add_layer(
+            32, true, 0.5,
+            NeuronActivation::LeakyRelu(0.01), LayerActivation::None
+        )
+        .add_layer(
+            10, false, 0.0,
+            NeuronActivation::None, LayerActivation::SoftMax
+        )
     ;
 
     network
@@ -24,9 +30,9 @@ pub fn train() -> Network {
         (Ok(mut training_set), Ok(testing_set)) => {
             let mut network = create_network();
             let t_conf = TrainingConfig::new(
-                5, training_set.len(),
-                0.01, 0.0001,
-                150, 10
+                10, training_set.len(),
+                0.01, 0.001,
+                128, 8,
             );
             ml_rust::train(&mut network, &mut training_set, &testing_set, t_conf);
             network
@@ -55,10 +61,10 @@ mod tests {
         let net = create_network();
 
         let mut ad = AutoDiff::new();
-        let ad_error = net.feed_forward(&mut ad, input);
+        let ad_error = net.feed_forward(&mut ad, input, true);
 
         let mut ff = FloatFactory::new();
-        let ff_error = net.feed_forward(&mut ff, input);
+        let ff_error = net.feed_forward(&mut ff, input, true);
 
         assert_eq!(ad_error.error(), ff_error.error());
     }

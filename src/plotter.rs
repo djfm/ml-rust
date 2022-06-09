@@ -3,6 +3,8 @@ use std::collections::{
     HashSet,
 };
 
+use rand::prelude::*;
+
 use sdl2::{
     pixels::Color,
     event::Event,
@@ -135,12 +137,12 @@ impl <P> Series<P> for SeriesData<P> where P: DataPoint {
 
     fn points(&mut self) -> &[Point] {
         if self.points_need_update {
-            if self.data.len() > self.width() as usize * 4 {
+            if self.data.len() > self.width() as usize * 2 {
+                println!("[trimming series {}]", self.name);
                 let data = self.data.clone();
                 self.data.clear();
-                let factor = (data.len() as f32 / self.width() as f32) as usize;
-                for (i, point) in data.iter().enumerate() {
-                    if i % factor == 0 {
+                for point in data.iter() {
+                    if thread_rng().gen::<f32>() > 0.5 {
                         self.data.push(*point);
                     }
                 }

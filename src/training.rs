@@ -12,7 +12,6 @@ use crate::{
     ClassificationExample,
     AutoDiff,
     FloatFactory,
-    BatchResult,
     util::{
         windows,
         Timer,
@@ -87,14 +86,14 @@ impl TrainingConfig {
         }
     }
 
-    pub fn update(&mut self, batch_result: &BatchResult) -> &mut Self {
-        self.training_samples_seen += batch_result.batch_size();
+    pub fn update(&mut self, samples_seen: usize) -> &mut Self {
+        self.training_samples_seen += samples_seen;
         self.progress =
             self.training_samples_seen as f32 /
             self.training_samples_count as f32;
 
-        let lp = self.progress.powf(0.5);
-        let bp = self.progress.powf(2.0);
+        let lp = self.progress.powf(1.5);
+        let bp = self.progress.powf(3.0);
 
         self.learning_rate =
             self.initial_learning_rate * (1.0 - lp) +
@@ -135,7 +134,7 @@ fn do_train<'a, S: ClassificationExample>(
 
     for epoch in 1..=t_conf.epochs {
         for batch in windows(&t_set, &win_iter_conf) {
-            let batch_result = network.feed_batch_forward(nf_creator, batch);
+            let batch_result = network.feed_batch_forward(nf_creator, batch, false);
 
             processed += batch.len();
             let progress = 100.0 * processed as f32 / total as f32;
@@ -147,20 +146,19 @@ fn do_train<'a, S: ClassificationExample>(
 
             network.back_propagate(&batch_result.diffs(), &t_conf);
 
+            t_conf.update(batch.len());
+            println!("\nUpdated training params: {:#?}\n", t_conf);
+
             println!(
-                "Epoch {}/{}, {} samples ({:.2}%) processed. Batch accuracy is: {:.2}%",
+                "Epoch {}/{}, {} samples ({:03.2}%) processed. Batch accuracy is: {:03.2}%",
                 epoch, t_conf.epochs, processed, progress, batch_result.accuracy(),
             );
-
-            t_conf.update(&batch_result);
-
-            println!("Updated training params: {:#?}\n", t_conf);
         }
 
         println!("\nEpoch {}/{} finished. Testing...", epoch, t_conf.epochs);
         let ff_provider = || FloatFactory::new();
-        let error = network.feed_batch_forward(ff_provider, testing_set);
-        println!("Testing finished. Accuracy is: {:.2}%\n", error.accuracy());
+        let error = network.feed_batch_forward(ff_provider, testing_set, true);
+        println!("Testing finished. Accuracy is: {:03.2}%\n", error.accuracy());
 
         if let Err(error) = send.send(AccuracyDataPoint::Epoch(
             epoch as f32,
