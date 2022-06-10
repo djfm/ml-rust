@@ -16,6 +16,10 @@ impl NumberLike for f32 {
     fn scalar(&self) -> f32 {
         *self
     }
+
+    fn set_scalar(&mut self, scalar: f32) {
+        *self = scalar;
+    }
 }
 
 impl NumberFactory<f32> for FloatFactory {

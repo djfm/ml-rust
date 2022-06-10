@@ -3,7 +3,8 @@
     "combine",
     "input_deps",
     "mlib",
-    "powf"
+    "powf",
+    "signum"
   ],
   "cSpell.ignoreWords": [
     "deps",

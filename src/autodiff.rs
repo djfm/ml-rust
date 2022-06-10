@@ -1,6 +1,5 @@
 use std::collections::hash_map::{HashMap};
-
-use rand::prelude::*;
+use std::fmt::Debug;
 
 use crate::{
     NumberFactory,
@@ -100,6 +99,11 @@ impl Tape {
             let record = &self.records[i];
             for partial in &record.partials {
                 gradient[partial.with_respect_to_id] += partial.diff * gradient[i];
+                let g = &mut gradient[partial.with_respect_to_id];
+
+                if g.is_infinite() {
+                    *g = f32::MAX * g.signum();
+                }
             }
         }
 
@@ -163,18 +167,13 @@ impl DifferentiableNumberFactory<ADNumber> for AutoDiff {
     }
 
     fn variable(&mut self, scalar: f32) -> ADNumber {
-        if scalar.is_nan() {
-            // FIXME: This is a hack to avoid NaN gradients.
-            return ADNumber::new(None, 0.5 - thread_rng().gen::<f32>());
-        }
-
         let id = Some(self.tape.len());
         self.tape.push_empty_record();
         ADNumber::new(id, scalar)
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct ADNumber {
     id: Option<usize>,
     scalar: f32,
@@ -182,12 +181,7 @@ pub struct ADNumber {
 
 impl ADNumber {
     pub fn new(id: Option<usize>, scalar: f32) -> Self {
-        if scalar.is_nan() {
-            // TODO: FIXME
-            panic!("scalar cannot be NaN");
-        }
-
-        ADNumber {
+       ADNumber {
             id,
             scalar,
         }
@@ -197,6 +191,10 @@ impl ADNumber {
 impl NumberLike for ADNumber {
     fn scalar(&self) -> f32 {
         self.scalar
+    }
+
+    fn set_scalar(&mut self, scalar: f32) {
+        self.scalar = scalar;
     }
 }
 

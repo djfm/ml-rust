@@ -108,14 +108,26 @@ impl BatchResult {
     }
 
     pub fn aggregate(results: &[BatchResult]) -> BatchResult {
-        let mut sum = results[0].clone();
+        let mut sum = BatchResult {
+            error: 0.0,
+            diffs: vec![0.0; results[0].diffs.len()],
+            accuracy: 0.0,
+            batch_size: 0,
+        };
 
-        for result in results.iter().skip(1) {
+        for result in results.iter() {
             sum.error += result.error;
             sum.accuracy += result.accuracy;
             sum.batch_size += result.batch_size;
             for (i, diff) in result.diffs.iter().enumerate() {
-                sum.diffs[i] += diff;
+
+                if !diff.is_nan() && !diff.is_infinite() {
+                    sum.diffs[i] += diff;
+                }
+
+                if sum.diffs[i].is_nan() {
+                    panic!("sum of diffs for param {} is NaN", i);
+                }
             }
         }
 
@@ -169,7 +181,7 @@ impl Network {
 
         for _ in 0..params_count {
             let rnd: f32 = thread_rng().gen();
-            self.params.push(rnd / params_count as f32 / 10.0);
+            self.params.push(rnd / params_count as f32 / 100.0);
         }
 
         self.layer_configs.push(LayerConfig {
@@ -232,9 +244,9 @@ impl Network {
         for (l, conf) in self.layer_configs.iter().enumerate() {
             let activations = (0..conf.neurons_count)
                 .map(|neuron| {
-                    let use_neuron = thread_rng().gen::<f32>() > conf.drop_out;
+                    let use_neuron = predict_mode || thread_rng().gen::<f32>() >= conf.drop_out;
 
-                    if !predict_mode && !use_neuron {
+                    if !use_neuron {
                         if let Some(dnf) = nf.get_as_differentiable() {
                             let zero = dnf.constant(0.0);
                             if conf.use_biases {
@@ -266,12 +278,12 @@ impl Network {
                         .iter()
                         .zip(previous_activations.iter())
                         .map(|(&w, &a)| {
-                            let weight = if let Some(dnf) = nf.get_as_differentiable() {
+                            let weight = if predict_mode {
+                                nf.constant(w * (1.0 - conf.drop_out))
+                            } else if let Some(dnf) = nf.get_as_differentiable() {
                                 let w = dnf.variable(w);
                                 params.push(w);
                                 w
-                            } else if predict_mode {
-                                nf.constant(w * (1.0 - conf.drop_out))
                             } else {
                                 nf.constant(w)
                             };
@@ -311,7 +323,6 @@ impl Network {
                 params.iter().map(|p| dnf.diff(&error, p)).collect()
             },
             None => vec![],
-
         };
 
         FFResult {
