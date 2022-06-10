@@ -2,25 +2,33 @@ use crate::util::{
     max_value,
 };
 
-pub trait NumberLike: Copy + Clone + PartialEq + PartialOrd {
+use std::fmt::Debug;
+
+pub trait NumberLike: Copy + Clone + PartialEq + PartialOrd + Debug {
     fn scalar(&self) -> f32;
 }
 
 macro_rules!declare_op {
    ($op_name:ident, $f:expr, ($($dep:ident),*), ($($diff:expr),*)) => {
        fn $op_name(&mut self, $($dep:N),*) -> N {
-            if let Some(dnf) = self.get_as_differentiable() {
-                dnf.compose(
-                    $f($($dep.scalar()),*),
-                    [$($dep),*].iter().zip(
-                        [$($diff),*].iter()
-                    ).map(
-                        |(dep, diff)| (dep, *diff)
-                    ).collect()
-            )
-            } else {
-                self.constant($f($($dep.scalar()),*))
+            let res = if let Some(dnf) = self.get_as_differentiable() {
+                    dnf.compose(
+                        $f($($dep.scalar()),*),
+                        [$($dep),*].iter().zip(
+                            [$($diff),*].iter()
+                        ).map(
+                            |(dep, diff)| (dep, *diff)
+                        ).collect()
+                )
+                } else {
+                    self.constant($f($($dep.scalar()),*))
+                };
+
+            if res.scalar().is_nan() {
+                panic!("Computing {}({:?}) resulted in NaN", stringify!($op_name), [$($dep),*]);
             }
+
+            res
        }
    };
 }
@@ -87,6 +95,11 @@ pub trait NumberFactory<N> where N: NumberLike {
 
     fn powi(&mut self, a: &N, i: i32) -> N {
         let result = a.scalar().powi(i);
+
+        if result.is_nan() {
+            panic!("Computing powi({}, {}) resulted in NaN", a.scalar(), i);
+        }
+
         let diff = i as f32 * result / a.scalar();
 
         match self.get_as_differentiable() {
@@ -177,6 +190,11 @@ pub trait NumberFactory<N> where N: NumberLike {
 
                 for v in res.iter_mut() {
                     *v = self.div(*v, sum);
+
+                    if v.scalar().is_nan() {
+                        panic!("an item of SoftMax vector is NaN");
+                    }
+
                 }
 
                 res

@@ -232,9 +232,9 @@ impl Network {
         for (l, conf) in self.layer_configs.iter().enumerate() {
             let activations = (0..conf.neurons_count)
                 .map(|neuron| {
-                    let use_neuron = thread_rng().gen::<f32>() > conf.drop_out;
+                    let use_neuron = predict_mode || thread_rng().gen::<f32>() > conf.drop_out;
 
-                    if !predict_mode && !use_neuron {
+                    if !use_neuron {
                         if let Some(dnf) = nf.get_as_differentiable() {
                             let zero = dnf.constant(0.0);
                             if conf.use_biases {
@@ -266,12 +266,12 @@ impl Network {
                         .iter()
                         .zip(previous_activations.iter())
                         .map(|(&w, &a)| {
-                            let weight = if let Some(dnf) = nf.get_as_differentiable() {
+                            let weight = if predict_mode {
+                                nf.constant(w * (1.0 - conf.drop_out))
+                            } else if let Some(dnf) = nf.get_as_differentiable() {
                                 let w = dnf.variable(w);
                                 params.push(w);
                                 w
-                            } else if predict_mode {
-                                nf.constant(w * (1.0 - conf.drop_out))
                             } else {
                                 nf.constant(w)
                             };
@@ -311,7 +311,6 @@ impl Network {
                 params.iter().map(|p| dnf.diff(&error, p)).collect()
             },
             None => vec![],
-
         };
 
         FFResult {
