@@ -244,25 +244,13 @@ impl Network {
         for (l, conf) in self.layer_configs.iter().enumerate() {
             let activations = (0..conf.neurons_count)
                 .map(|neuron| {
-                    let use_neuron = predict_mode || thread_rng().gen::<f32>() >= conf.drop_out;
-
-                    if !use_neuron {
-                        if let Some(dnf) = nf.get_as_differentiable() {
-                            let zero = dnf.constant(0.0);
-                            if conf.use_biases {
-                                params.push(zero);
-                            }
-                            self.get_weights(l, neuron).iter().for_each(|_| params.push(zero));
-                        }
-
-                        return nf.constant(0.0);
-                    }
+                    let use_param = || predict_mode || thread_rng().gen::<f32>() >= conf.drop_out;
 
                     let bias = self.get_bias(l, neuron);
 
                     let mut sum = if let Some(dnf) = nf.get_as_differentiable() {
                         if conf.use_biases {
-                            let var = dnf.variable(bias);
+                            let var = if use_param() { dnf.variable(bias) } else { dnf.constant(0.0) };
                             params.push(var);
                             var
                         } else {
@@ -272,7 +260,6 @@ impl Network {
                         nf.constant(bias)
                     };
 
-
                     let weights = self.get_weights(l, neuron);
                     let contributions = weights
                         .iter()
@@ -281,7 +268,7 @@ impl Network {
                             let weight = if predict_mode {
                                 nf.constant(w * (1.0 - conf.drop_out))
                             } else if let Some(dnf) = nf.get_as_differentiable() {
-                                let w = dnf.variable(w);
+                                let w = if use_param() { dnf.variable(w) } else { dnf.constant(0.0) };
                                 params.push(w);
                                 w
                             } else {
