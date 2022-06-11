@@ -30,9 +30,9 @@ pub fn train() -> Network {
         (Ok(mut training_set), Ok(testing_set)) => {
             let mut network = create_network();
             let t_conf = TrainingConfig::new(
-                10, training_set.len(),
-                0.01, 0.001,
-                128, 8,
+                20, training_set.len(),
+                0.01, 0.0001,
+                256, 16,
             );
             ml_rust::train(&mut network, &mut training_set, &testing_set, t_conf);
             network

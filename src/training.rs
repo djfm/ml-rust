@@ -92,8 +92,8 @@ impl TrainingConfig {
             self.training_samples_seen as f32 /
             self.training_samples_count as f32;
 
-        let lp = self.progress.powf(1.5);
-        let bp = self.progress.powf(3.0);
+        let lp = self.progress.powf(1.);
+        let bp = self.progress.powf(1.);
 
         self.learning_rate =
             self.initial_learning_rate * (1.0 - lp) +
