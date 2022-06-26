@@ -12,7 +12,7 @@ Optimization is made via stochastic gradient descent, using (self implemented) a
 
 ### Dropout
 
-I've added a 50% dropout (during training only obviously) and I'm quite please with the results:
+I've added a 50% dropout (during training only obviously) and I'm quite pleased with the results:
 
 - testing accuracy is slightly lower- but being faster I can run many more epochs during training and sill remain under 20 minutes on my old 8-
   pseudocores desktop
