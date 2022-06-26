@@ -14,7 +14,9 @@ Optimization is made via stochastic gradient descent, using (self implemented) a
 
 I've added a 50% dropout (during training only obviously) and I'm quite pleased with the results:
 
-- testing accuracy is slightly lower- but being faster I can run many more epochs during training and sill remain under 20 minutes on my old 8-
+- testing accuracy is slightly lower at the same number of epochs,
+  but since training an epoch is much faster now I can run many more epochs during training and sill remain under 20 minutes 
+  to complete on my old 8-
   pseudocores desktop
 
 - on that same old hardware with dropout I gat 96% accujracy on the testinhg set on average an often abovt thsat.
