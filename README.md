@@ -13,9 +13,9 @@ Optimization is made via stochastic gradient descent, using (self implemented) a
 
 The jagged lines are the error rates on eacch mini batch, while the more infrewquent line represents the acccuracy after testing on the tesing set after each training epoch is complete.
 
-## Upodates, thinks I learned and pitfalls I've encountered along the way
+# Upodates, thinks I learned and pitfalls I've encountered along the way
 
-### Dropout
+## Dropout
 
 I've added a 50% dropout on, the hidden layer (during training only obviously) and I'm quite pleased with the results:
 
