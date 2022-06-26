@@ -23,7 +23,7 @@ I've added a 50% dropout (during training only obviously) and I'm quite please w
 
 ### NaN's
 
-They're plmge :)
+They're pain in the a** :)
 
 Most of themresult from computing lage softtmaxes, even thoihj I'm using the so called [softmax trick](https://jamesmccaffrey.wordpress.com/2016/03/04/the-max-trick-when-computing-softmax/)
 
