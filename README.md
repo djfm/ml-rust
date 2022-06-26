@@ -8,7 +8,7 @@ For MNIST, training is done in batches, whose size reduces slightly after each b
 
 Optimization is made via stochastic gradient descent, using (self implemented) automatic differentiation for computing error gradients and parameter updates.
 
-## Upodates and pitfalls as I learn
+## Upodates, thinks I learned and pitfalls I've encountered along the way
 
 ### Dropout
 
