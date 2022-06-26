@@ -27,9 +27,11 @@ epoches)
 
 They're pain in the a** :)
 
-Most of themresult from computing lage softtmaxes, even thoihj I'm using the so called [softmax trick](https://jamesmccaffrey.wordpress.com/2016/03/04/the-max-trick-when-computing-softmax/)
+Most of them seem to result from computing lage softtmaxes, even thoihj I'm using the so called [softmax trick](https://jamesmccaffrey.wordpress.com/2016/03/04/the-max-trick-when-computing-softmax/)
 
 My strategy currentlu when I can't figure out where the nans are coming from is to replace them with either very big or very small numbers if they're infinity; and if not, pick a value at random but that doesn' seem to work very well.
+
+I'm wondering whether simply disconnecting a NaN neuron from the network would form, after all, it's dead.
 
 # Testing
 
