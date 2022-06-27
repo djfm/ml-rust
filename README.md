@@ -23,7 +23,7 @@ I've added a 50% dropout on the hidden layer (during training only obviously) an
   but since training an epoch is much faster now I can run many more epochs during training and sill remain under 20 minutes 
   to complete training on my old 8-pseudocores desktop
 
-- on that same old hardware with dropout I get 96% accuracy on the testing set on average and often above that (typically I use 20 epochs)
+- on that same old hardware with dropout I get 96% accuracy on the testing set on average and often above that (typically I use 10 epochs)
 
 ## Problems Identified
 
