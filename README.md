@@ -11,7 +11,7 @@ Optimization is made via stochastic gradient descent, using (self implemented) a
 # Here is an example of the MNIST recognizer running on a decent laptop:
 ![ml-rust-mnist](https://user-images.githubusercontent.com/1460499/175834092-24ff2c17-474f-4162-a2d5-8be0ecd67489.png)
 
-The jagged lines are the error rates on each mini batch, while the more infrequent segments represent the acccuracy on the testing set after each training epoch is complete.
+The jagged lines represent the accuracy on each mini batch, while the more infrequent segments represent the acccuracy on the testing set after each training epoch is completed.
 
 # Updates, things I learned and pitfalls I've encountered along the way
 
