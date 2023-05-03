@@ -20,7 +20,7 @@ The jagged lines represent the accuracy on each mini batch, while the more infre
 I've added a 50% dropout on the hidden layer (during training only obviously) and I'm quite pleased with the results:
 
 - testing accuracy is slightly lower with the same number of epochs,
-  but since training an epoch is much faster now I can run many more epochs during training and still remain under 20 minutes 
+  but since training an epoch is much faster now I can run many more epochs during training and still remain under 20 minutes
   to complete training on my old 8-pseudocores desktop
 
 - on that same old hardware with dropout I get 96% accuracy on the testing set on average and often above that (typically I use 10 epochs)
@@ -37,9 +37,22 @@ My strategy currently when I can't figure out where the NaNs are coming from is 
 
 I'm wondering whether simply disconnecting a NaN neuron from the network would work, after all, it's dead.
 
-# Testing
+# Trying it out: how to install and run
 
 **Warning**: Only tested on linux.
+
+## Prerequisites
+
+On debian based distributions, which is all that I have tested,
+you will probably need `build-essential`,
+and the only "exotic" dependency is libSDL2, that you should be able
+to install pretty universally with:
+
+```bash
+sudo apt install libsdl2-dev
+```
+
+## Compile and run
 
 ```bash
 git clone git@github.com:djfm/ml-rust.git
